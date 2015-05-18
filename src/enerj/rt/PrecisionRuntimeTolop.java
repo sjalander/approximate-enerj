@@ -1,60 +1,566 @@
 package enerj.rt;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
-import java.util.Map;
-import java.util.HashMap;
 import java.util.WeakHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;
-import plume.WeakIdentityHashMap;
 
-import java.util.List;
+import plume.WeakIdentityHashMap;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONStringer;
 import org.json.JSONTokener;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 
-class CreationInfo {
-    public Object creator;
-    public boolean approx;
-    public int preciseSize;
-    public int approxSize;
-}
-
-class ApproximationInformation {
-    public long created;
-    public List<Long> read;
-    public List<Long> write;
-    public long collected;
-    public boolean approx;
-    public boolean heap;
-    public int preciseSize;
-    public int approxSize;
-
-    // to safe a bit of space we only store the creation time.
-    ApproximationInformation(long t, boolean approx, boolean heap,
-                             int preciseSize, int approxSize) {
-        created = t;
-        read = new LinkedList<Long>();
-        write= new LinkedList<Long>();
-        this.approx = approx;
-        this.heap = heap;
-        this.preciseSize = preciseSize;
-        this.approxSize = approxSize;
-    }
-}
+import enerj.AnnotationType;
+import enerj.FieldInfoContainer;
+import enerj.MyTuple;
 
 class PrecisionRuntimeTolop implements PrecisionRuntime {
+
+    /********TOLOP INNER CLASSES, VARIABLES AND METHODS********/
+    
+    /**
+     * Tuple for holding when some specific cache line were held in SRAM/DRAM. 
+     * @author Gustaf Borgström
+     */
+    private class TimeTuple {
+        long sramTime;
+        long dramTime;
+        long lruTime;
+        boolean approx;
+        
+        TimeTuple(boolean approx) {
+            sramTime = -1;  // Guarantees the lowest (oldest) time stamp
+            dramTime = -1;  // Guarantees the lowest (oldest) time stamp
+            lruTime = -1;   // Guarantees the lowest (oldest) time stamp
+            this.approx = approx;
+        }
+        
+        long getLruTime() {
+            return this.lruTime;
+        }
+        
+        void setLruTime(long lruTime) {
+            this.lruTime = lruTime;
+        }
+        
+        long getDramTime() {
+            return this.dramTime;
+        }
+        
+        void setDramTime(long dramTime) {
+            this.dramTime = dramTime;
+        }
+        
+        long getSramTime() {
+            return this.sramTime;
+        }
+        
+        void setSramTime(long sramTime) {
+            this.sramTime = sramTime;
+        }
+        
+        boolean isApprox() {
+            return approx;
+        }
+        
+        void setApprox(boolean approx) {
+            this.approx = approx;
+        }
+    }
+
+    // File names for data input/output
+    protected static final String JSON_INPUT_FILE_NAME = "object_field_info.json";
+    protected static final String JSON_OUTPUT_FILE_NAME = "enerjstats.json";
+
+    /**
+     *  If true, values may be approximate; else, all values are precise.
+     *  This is used to show the difference between a regular- and an
+     *  approximative computer architecture.
+     */
+    private boolean ALLOW_APPROXIMATE = true; 
+    
+    /**
+     * Size of address on 64 bit machine.
+     */
+    private static final int POINTER_SIZE = 8; // Byte size
+    private static final int POINTER_QYTE_SIZE = 16; // Qyte size
+
+    /**
+     *  Address specific variables.
+     */
+    private long addressGeneratorPrecise = 0; // Address counter of precise memory
+    private long addressGeneratorApprox = 0; // Address counter of approximative memory
+    private int cacheSize; // Total size of the cache
+    private int cacheLineSizeInWords; // Size of a cache line in words
+    private int cacheLineSizeInBytes; // Size of a cache line in bytes
+    private int nIndexes; // Number of cache indexes
+
+    private Map<String, TimeTuple> memoryTimeStamps
+        = new HashMap<String, TimeTuple>(); // Contains last access time of any cache line
+    
+    /**
+     * Maps an address tag to SRAM/DRAM time data.
+     */
+    private List<HashMap<Long, TimeTuple>> sramContainer;// Which line is in the cache now?
+    
+    /**
+     *  Define fundamental size related to 64 bit addresses
+     */
+    private static final int byteSizeBits = 8; // 8 bits in one byte
+    private static final int wordSize = 4; // 4 bytes in a word (here, might differ)
+    private static final int wordSizeBits = wordSize*byteSizeBits; // A word is defined as 32 bits (here)
+    private static final int addressSizeBits = 64;
+    private static final int offsetBits = 2; // 2^2 = 4 bytes per word
+    private static final long approxMask = (long)1 << 63; // Note: sets the sign bit 
+    private int nApproxWordsPerLineBits; // Words per cache line
+    private int nCacheLinesBits; // Number of lines in the cache, binary representation
+    private int sramAssociativity; // Associativity per cache index
+    private long tagMask; // Mask for getting tags from addresses
+    private boolean padCacheLines = false; // Whether cache lines should be padded to the end after allocation, or not
+    private boolean differentDRAMSpaces = true; // Whether approx/precise lives in different DRAM
+    
+    /**
+     * Maps specific (unique) key representation of some memory block -> its
+     * address information.
+     */
+    private Map<String, AddressInformation> memorySpace =
+            new HashMap<String, AddressInformation>(); 
+    
+    /**
+     * Info about accesses in memory hierarchy.
+     */
+    public MemoryOpInfo memOpInfo = new MemoryOpInfo();
+
+    /**
+     * Map to store data extracted from earlier compilation (and now loaded from)
+     * a resulting JSON file). Used for setting information about approx/precise
+     * fields, etc.
+     * Mapping: Class name -> Map, that maps Class field name -> Additional field
+     * info, like approximation annotation, etc.
+     */
+    private Map<String, HashMap<String, FieldInfoContainer>> classInfo =
+        new HashMap<String, HashMap<String, FieldInfoContainer>>();
+
+    /**
+     * Get start address for the wanted amount of memory space.
+     * @param nMemory Wanted amount of memory
+     * @param approx Whether memory is approximate or not. If true; use
+     * approximate memory space; otherwise, use precise.  
+     * @return Start address for the wanted amount of memory
+     */
+    private long getAddress(long nMemory, boolean approx) {
+        long tmp;
+        if (approx && differentDRAMSpaces) {
+            tmp = addressGeneratorApprox;
+            addressGeneratorApprox += nMemory;
+        }
+        else { // If the same DRAM space is used for precise/approx memory,
+               // it doesn't matter technically what generator is used – using
+               // "…Precise" is sufficient.
+            tmp = addressGeneratorPrecise;
+            addressGeneratorPrecise += nMemory;
+        }
+        return tmp;
+    }
+    
+    /**
+     * Get current address counter value.
+     * @param approx If true, return current approximate memory space counter;
+     * otherwise, return precise memory space counter. 
+     * @return Current value of some memory counter
+     */
+    public long peekAddress(boolean approx) {
+        return (approx && differentDRAMSpaces) ? addressGeneratorApprox : addressGeneratorPrecise;
+    }
+    
+    /**
+     * Is assigned memory cache lines padded or not?
+     * @return If memory cache lines are padded after allocation, return true;
+     * else, return false.
+     */
+    public boolean isPadded() {
+        return padCacheLines;
+    }
+    
+    /**
+     * Set padding. NOTE: This does NOT change previous memory padding, changes
+     * will only manifest from calling this method and onwards. 
+     * @param padding If true, memory cache lines will be padded from now on;
+     * else, it will not be padded. 
+     */
+    public void setPadding(boolean padding) {
+        padCacheLines = padding;
+    }
+
+    /**
+     * Memory is stored on different DRAM chips depending on approximative or not?
+     * @return If memory is stored on different DRAM if approximative, return true;
+     * else, return false.
+     */
+    public boolean hasDifferentDRAM() {
+        return differentDRAMSpaces;
+    }
+    
+    /**
+     * Set whether to use different DRAM spaces or not. NOTE: This does NOT
+     * change previous memory allocations. Thus, already allocated memory will
+     * still be marked as residing in the space that was true then. If used
+     * incorrectly, memory cache accuracy may misbehave accordingly.  
+     * @param differentDRAMSpaces If true, different DRAM spaces and memory
+     * addresses will be used upon allocation, store and loads; else, one
+     * memory space will be used.
+     */
+    public void setDifferentDRAMSpace(boolean differentDRAMSpaces) {
+        this.differentDRAMSpaces = differentDRAMSpaces;
+    }
+
+    /**
+     * Return object size in quad-cache.
+     * @param value Name of the object
+     * @param approx Whether the value is approximate or not. If true, return
+     * approx (regular) size; else return precise (double) size. E.g., a regular
+     * double is 16 qytes.
+     * @return Object size in qytes
+     */
+    public static int numQytes(String value, boolean approx) {
+        switch (value) {
+        case "java.lang.Byte":
+        case "Byte":
+        case "byte":
+            return (approx ? 1 : 2);
+        case "java.lang.Short":
+        case "Short":
+        case "short":
+            return (approx ? 2 : 4);
+        case "java.lang.Integer":
+        case "Integer":
+        case "int":
+            return (approx ? 4 : 8);
+        case "java.lang.Long":
+        case "long":
+             return (approx ? 8 : 16);
+        case "java.lang.Float":
+        case "Float":
+        case "float":
+             return (approx ? 4 : 8);
+        case "java.lang.Double":
+        case "Double":
+        case "double":
+             return (approx ? 8 : 16);
+        case "java.lang.Character":
+        case "Character":
+        case "char":
+             return (approx ? 2 : 4);
+        case "java.lang.Boolean":
+        case "Boolean":
+        case "boolean":
+             return (approx ? 1 : 2);
+        default:
+            return POINTER_QYTE_SIZE;
+        }
+    }
+
+    /**
+     * Give values priority order when ordering object fields.
+     * @param value Some value that should be prioritized
+     * @return The priority order of some type, pointers are higest, thereafter:
+     * the larger the type, the higher the priority. 
+     */
+    public static int prioritizeType(String value) {
+        if      (value.equals("byte") || value.equals("java.lang.Byte")) return 1;
+        else if (value.equals("short") || value.equals("java.lang.Short")) return 2;
+        else if (value.equals("int") || value.equals("java.lang.Integer")) return 4;
+        else if (value.equals("long") || value.equals("java.lang.Long"))  return 8;
+        else if (value.equals("float") || value.equals("java.lang.Float"))  return 4;
+        else if (value.equals("double") || value.equals("java.lang.Double"))  return 8;
+        else if (value.equals("char") || value.equals("java.lang.Character"))  return 2;
+        else if (value.equals("boolean") || value.equals("java.lang.Boolean"))  return 1;
+        else { /* …or instances of some general other object */
+            return 10;
+        }
+    }
+
+    /**
+     * Solution for iterating over n-dimensional arrays.  
+     * Credits: http://stackoverflow.com/a/15949458/1283083
+     */
+    private interface ElementProcessor {    
+        void process(Object e, int index, boolean approx);  
+    }
+    
+    /**
+     * Recursively traverse through the array dimensions until the types are
+     * "found". Apply a callback function on the each such type element.
+     * @param o The array object
+     * @param p Callback function to be applied on the final elements
+     * @param approx Whether the array elements are approximate or not 
+     */
+    private static void addressesToArrayElemsAux(Object o, ElementProcessor p,
+            boolean approx, boolean isValue) {
+        int n = Array.getLength(o);
+        if (debug) {
+        }
+        for (int i = 0; i < n; i++) {
+            Object e = Array.get(o, i);
+            if (e != null && e.getClass().isArray()) {
+                addressesToArrayElemsAux(e, p, approx, isValue);
+                if (!isValue)
+                    p.process(o, i, approx);
+                if (debug) {
+                }
+            }
+            else if (isValue) { // End of array
+                p.process(o, i, approx);
+            }
+        }
+    }
+    
+    /**
+     * Assign addresses to array values.
+     * @param created The array to assign addresses to
+     * @param approx Whether the array contains approximate values or not 
+     */
+    private <T> void assignAddressesToArrayItems(T created, boolean approx,
+            boolean isValue) {
+        // …then, give all values addresses
+        Object arr = created;
+        ElementProcessor p = new ElementProcessor() {
+            @Override
+            public void process(Object arr, int index, boolean approx) {
+                long tim = System.currentTimeMillis(); // Time stamp of creation
+                
+                // Compute item size(s)
+                int typeSize, approxSize = 0, preciseSize = 0;
+                Object obj = Array.get(arr, index);
+                String typeName;
+                if (obj == null) { // Array contents may be null values; if so, determine array type
+                    typeName = arr.getClass().getCanonicalName().replace("[]", "");
+                    typeSize = numQytes(typeName, approx);
+                }
+                else {
+                    typeName = obj.getClass().getName();
+                    typeSize = numQytes(obj.getClass().getName(), approx);
+                }
+                
+                if (approx)
+                    approxSize = typeSize;
+                else
+                    preciseSize = typeSize;
+                
+                long address = getAddress(typeSize, approx); // Address to array reference
+                
+                AddressInformation addrInfo =
+                        new AddressInformation(tim, approx, true, preciseSize,
+                                approxSize, address);
+                String key = memoryKey(arr, index);
+                memorySpace.put(key, addrInfo);
+                
+                if (debug) {
+                }
+            }
+        };
+        addressesToArrayElemsAux(arr, p, approx, isValue);
+    }
+
+    /**
+     * Evict a specific cache line from SRAM -> DRAM and write a new cache line
+     * in its place. If nothing needs to be evicted, nothing will. 
+     * @param indexAssocLine Specific (associative) cache index content. 
+     * @param currentLine Cache line of the current memory block
+     * @param tim Current time stamp
+     * @param addrTag The current address tag
+     * @param ainfo Info about the current memory block
+     */
+    protected void evictCacheLine(HashMap<Long, TimeTuple> indexAssocLine,
+            TimeTuple currentLine, long tim, long addrTag,
+            AddressInformation ainfo) {
+        if (indexAssocLine.size() < sramAssociativity) { // Might just be early in program execution?
+            currentLine.setSramTime(tim);
+            indexAssocLine.put(addrTag, currentLine);
+        }
+        else {
+            long oldestTime = Long.MAX_VALUE;
+            TimeTuple tmpTuple, evictedLine = null;
+            Long oldTag = (long)0;
+            for (Map.Entry<Long, TimeTuple> entry : indexAssocLine.entrySet()) {
+                tmpTuple = entry.getValue();
+                if (oldestTime > tmpTuple.lruTime) {
+                    evictedLine = tmpTuple; // Will definitely be smaller than max
+                    oldTag = entry.getKey();
+                    oldestTime = tmpTuple.lruTime;
+                }
+            }
+            // Set time stamps
+            currentLine.setSramTime(tim);
+            currentLine.setLruTime(tim);
+            evictedLine.setDramTime(tim);
+            
+            // How long has data been in cache?
+            if (evictedLine.getSramTime() < 0)
+                System.err.println(evictedLine.getSramTime());
+            long timeInSram = tim - evictedLine.getSramTime();
+            memOpInfo.increaseTotalSramTime(timeInSram);
+            memOpInfo.compareAndSetMinSramTime(timeInSram);
+            memOpInfo.compareAndSetMaxSramTime(timeInSram);
+            
+            // Switch cache lines
+            indexAssocLine.remove(oldTag); // Remove old value
+            indexAssocLine.put(addrTag, currentLine);
+            // Register the miss/eviction
+            memOpInfo.increaseEvictions(currentLine.approx, evictedLine.approx);
+        }
+        memOpInfo.increaseMisses(ainfo.approx);
+    }
+
+    /**
+     * Help function for store-/loadIntoMemory; memory evictions from SRAM->DRAM
+     * may occur.
+     * @param key Key to stored object
+     * @param If true, the operation is a store; else, it's a load
+     */
+    private void memoryOp(String key, boolean store) {
+        if (debug) {
+        }
+        
+        // Uninitialized memory – from stdin array?
+        if (!memorySpace.containsKey(key)) {
+            if (debug) {
+                System.err.println("EnerJ: Missed key " + key);
+                debugCounters.get("missingKeyCounter").incrementAndGet();
+            }
+            return;
+        }
+        AddressInformation ainfo = memorySpace.get(key);
+        long address = ainfo.address; // Get the start address of memory block
+        
+        // Register this memory operation
+        if (store)
+            memOpInfo.increaseStores(ainfo.approx);
+        else
+            memOpInfo.increaseLoads(ainfo.approx);
+        
+        // Compute "tag" (i.e. address without byte offset, etc)
+        long addrNoByteOffset = address >> offsetBits; // Full cache line address (minus byte offset)        
+        long addrNoWordOffset = addrNoByteOffset // Full cache line address (minus byte + word offset)
+                >> nApproxWordsPerLineBits;
+        long addrIndex = addrNoWordOffset % nIndexes; // Compute cache index
+        long addrTag = address & tagMask; // Compute address tag
+        if (ainfo.approx)
+            addrTag |= approxMask;
+        
+        TimeTuple currentLine; // The actual current cache line
+        // Create a unique identifier for every cache line
+        String memoryTimeStampsString = (ainfo.approx ? "A" : "P") + addrNoWordOffset;
+        // Get cache line times (or create new tuple)
+        if (!memoryTimeStamps.containsKey(memoryTimeStampsString)) { // This cache line has never been loaded
+            currentLine = new TimeTuple(ainfo.approx); // Initialize with oldest value possible and set approx state of cache line
+            memoryTimeStamps.put(memoryTimeStampsString, currentLine);
+        }
+        else {
+            currentLine = memoryTimeStamps.get(memoryTimeStampsString);
+        }
+        
+        // n-associative mapped cache eviction policy
+        long tim = System.currentTimeMillis(); // Used for setting new time stamps
+        ainfo.updateTimeStamp(tim); // Update memory block time stamp
+        HashMap<Long, TimeTuple> indexAssocLine = sramContainer.get((int)addrIndex); // Get index in cache
+        // Approximative/precise tag is in SRAM: update
+        if (indexAssocLine.containsKey(addrTag)) {
+            TimeTuple lineInSRAM = indexAssocLine.get(addrTag);
+            lineInSRAM.lruTime = tim;
+            memOpInfo.increaseHits(ainfo.approx);
+        }
+        else { // Cache line not in SRAM: write new data there (most likely with eviction)
+            evictCacheLine(indexAssocLine, currentLine, tim, addrTag, ainfo);
+        }
+    }
+
+    /**
+     * Print all steps of handling memory addresses in their binary form
+     * @param ainfo Address information
+     * @param address Address
+     * @param addrNoByteOffset Address, no byte offset
+     * @param addrNoWordOffset Address, no word offset
+     * @param addrIndex Computed index
+     * @param addrTag Comuted address tag
+     */
+    private void debug_printBinaryRepresentations(AddressInformation ainfo,
+            long address, long addrNoByteOffset, long addrNoWordOffset,
+            long addrIndex, long addrTag) {
+        System.err.println(ainfo.approx ? "Approx " : "Precise ");
+        System.err.println(
+            "address:\t\t"+ address + "\t" + Long.toBinaryString(address) + "\n"
+            + "addrNoByteOffset:\t" + addrNoByteOffset + "\t" + Long.toBinaryString(addrNoByteOffset)  + "\n" 
+            + "addrNoWordOffset:\t" + addrNoWordOffset + "\t" + Long.toBinaryString(addrNoWordOffset) + "\n"
+            + "addrIndex:\t\t" + addrIndex + "\t" + Long.toBinaryString(addrIndex) + "\n"
+            + "addrTag:\t\t" + addrTag + "\t" + Long.toBinaryString(addrTag));
+    }
+
+    /**
+     * Load some object from the memory hierarchy. This may cause transactions
+     * and/or evictions in SRAM/DRAM. This task must be done synchronously.
+     * @param key Key to stored object
+     */
+    private synchronized void loadFromMemory(String key) {
+        memOpInfo.increaseTotalMemOps();
+        memoryOp(key, false);
+    }
+    
+    /**
+     * Put some object into the memory hierarchy. This may cause transactions
+     * and/or evictions in SRAM/DRAM. This task must be done synchronously.
+     * @param key Key to stored object
+     */
+    private synchronized void storeIntoMemory(String key) {
+        memOpInfo.increaseTotalMemOps();
+        memoryOp(key, true);
+    }
+
+    /* (TRICK TO DIVIDE NOISY FROM DEFAULT)
+     * (THIS DOESN'T COVER FOR MERGED, I.E. PREVIOUSLY OVERRIDEN, METHODS)
+     */
+    /***************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ***************************************************************************/
 
     /********NOISY VARIABLES AND METHODS********/
 
@@ -235,11 +741,55 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         return value;
     }
 
-    private String dramKey(Object obj, String field) {
-        return System.identityHashCode(obj) + field;
+    private static final String STATIC_STRING = "static";
+
+    /**
+     * Create keys for memory accesses of fields = object hashcode + some loaded
+     * field.
+     * @param obj Object to be touched in memory
+     * @param field Field name 
+     * @return Key string  
+     */
+    protected String memoryKey(Object obj, String field) {
+        String identifier = Integer.toString(System.identityHashCode(obj));
+        if (obj == null) {
+            if (debug)
+                System.err.println("memoryKey: Null object found; field = " + field);
+            return STATIC_STRING + field; // Workaround for null objects; (only static fields behave like this)
+        }
+
+        // Now, there exists a method doing *almost* this, has to take care of
+        // static fields separately, however
+        Class<?> objClass = obj.getClass();
+        while (true) {
+            try { // Handle eventual static fields
+                Field f = objClass.getDeclaredField(field); // If failing, "go to" exception
+                if (Modifier.isStatic(f.getModifiers())) {
+                    identifier = STATIC_STRING + objClass.getName();
+                    if (debug)
+                        System.err.println("memoryKey: STATIC KEY = " + identifier);
+                }
+                break;
+            }
+            catch (NoSuchFieldException e) {
+                if (debug)
+                    System.err.println("Field " + field + " not found in "
+                        + objClass.getName() + "; trying superclass…");
+                objClass = objClass.getSuperclass();
+                continue;
+            }
+        }
+        return identifier + field;
     }
 
-    private String dramKey(Object array, int index) {
+    /**
+     * Create keys for memory accesses of arrays = object hashcode + some array
+     * index.
+     * @param obj Object to be touched in memory
+     * @param index Array index
+     * @return Key string
+     */
+    private String memoryKey(Object array, int index) {
         return "array" + System.identityHashCode(array) + "idx" + index;
     }
 
@@ -281,89 +831,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         }
     }
 
-    /* (TRICK TO DIVIDE NOISY FROM DEFAULT)
-     * (THIS DOESN'T COVER FOR MERGED, I.E. PREVIOUSLY OVERRIDEN, METHODS)
-     */
-    /***************************************************************************
-    ****************************************************************************
-    ****************************************************************************
-    ****************************************************************************
-    ****************************************************************************
-    ****************************************************************************
-    ****************************************************************************
-    ****************************************************************************
-    ****************************************************************************
-    ****************************************************************************
-    ****************************************************************************
-    ****************************************************************************
-    ****************************************************************************
-    ****************************************************************************
-    ****************************************************************************
-    ****************************************************************************
-    ****************************************************************************
-    ***************************************************************************/
-
-    /********DEFAULT VARIABLES********/
-
-    // This map *only* contains approximate objects. That is,
-    // info.get(???).approx == true
-    private Map<Object, ApproximationInformation> info = new WeakIdentityHashMap<Object, ApproximationInformation>();
-
-    // This "parallel" map is used just to receive object finalization events.
-    // Phantom references can't be dereferenced, so they can't be used to look
-    // up information. But there are the only way to truly know exactly when
-    // an object is about to be deallocated. This map contains *all* objects,
-    // even precise ones.
-    private Map<PhantomReference<Object>, ApproximationInformation> phantomInfo =
-        new HashMap<PhantomReference<Object>, ApproximationInformation>();
-    private ReferenceQueue<Object> referenceQueue = new ReferenceQueue<Object>();
-
-    long startup;
-
-    private Map<String, Integer> preciseOpCounts = new HashMap<String, Integer>();
-    private Map<String, Integer> approxOpCounts  = new HashMap<String, Integer>();
-    private Map<String, Long> approxFootprint = new HashMap<String, Long>();
-    private Map<String, Long> preciseFootprint = new HashMap<String, Long>();
-
-    private static boolean debug = "true".equals(System.getenv("EnerJDebug"));
-
-    @Override
-    public PhantomReference<Object> setApproximate(
-        Object o, boolean approx, boolean heap, int preciseSize, int approxSize
-    ) {
-        if (debug) {
-            System.out.println("EnerJ: Add object " + System.identityHashCode(o) + " to system.");
-        }
-        long time = System.currentTimeMillis();
-        ApproximationInformation infoObj =
-            new ApproximationInformation(time, approx, heap,
-                                         preciseSize, approxSize);
-        PhantomReference<Object> phantomRef = new PhantomReference<Object>(o, referenceQueue);
-
-        // Add to bookkeeping maps.
-        synchronized (this) {
-            if (approx)
-                info.put(o, infoObj);
-            phantomInfo.put(phantomRef, infoObj);
-        }
-
-        return phantomRef;
-    }
-
-    @Override
-    public boolean isApproximate(Object o) {
-        if (debug) {
-            System.out.println("EnerJ: Determine whether \"" + (o!=null ? System.identityHashCode(o):"null") + "\" is approximate");
-        }
-        boolean approx;
-        synchronized (this) {
-            approx = info.containsKey(o);
-        }
-        return approx;
-    }
-
     /**
-     * Imported from constructor of PrecisionRuntimeNoisy
+     * Content imported from the constructor of PrecisionRuntimeNoisy
      */
     private void doNoisyConstructorThings() {
         System.err.println("Initializing noisy EnerJ runtime.");
@@ -403,20 +872,275 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         System.err.println("   timing error prob: " + TIMING_ERROR_PROB_PERCENT);
     }
 
-    public PrecisionRuntimeTolop() {
-        super();
+    /* (TRICK TO DIVIDE NOISY FROM DEFAULT)
+     * (THIS DOESN'T COVER FOR MERGED, I.E. PREVIOUSLY OVERRIDEN, METHODS)
+     */
+    /***************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ****************************************************************************
+    ***************************************************************************/
 
-        startup = System.currentTimeMillis();
+    /********DEFAULT VARIABLES********/
 
+    // This map *only* contains approximate objects. That is,
+    // info.get(???).approx == true
+    private Map<Object, ApproximationInformation> info
+        = new WeakIdentityHashMap<Object, ApproximationInformation>();
+
+    // This "parallel" map is used just to receive object finalization events.
+    // Phantom references can't be dereferenced, so they can't be used to look
+    // up information. But there are the only way to truly know exactly when
+    // an object is about to be deallocated. This map contains *all* objects,
+    // even precise ones.
+    private Map<PhantomReference<Object>, ApproximationInformation> phantomInfo =
+        new HashMap<PhantomReference<Object>, ApproximationInformation>();
+    private ReferenceQueue<Object> referenceQueue = new ReferenceQueue<Object>();
+
+    /**
+     * Time of creation of 'this' object
+     */
+    long startup;
+
+    /**
+     * Keeps counters for runtime operations, e.g. '+', on precise objects   
+     */
+    private Map<String, Integer> preciseOpCounts = new HashMap<String, Integer>();
+    
+    /**
+     * Keeps counters for runtime operations, e.g. '+', on approximative objects
+     */
+    private Map<String, Integer> approxOpCounts  = new HashMap<String, Integer>();
+    
+    /**
+     * Count how much approximative data has been kept in memory during the execution
+     */
+    private Map<String, Long> approxFootprint = new HashMap<String, Long>();
+    
+    /**
+     * Count how much precise data has been kept in memory during the execution
+     */
+    private Map<String, Long> preciseFootprint = new HashMap<String, Long>();
+
+    /**
+     * If true, additional debug info will be shown during execution
+     */
+    private static boolean debug = Boolean.parseBoolean(System.getenv("EnerJDebug"));
+
+    /**
+     * Mapping Thread IDs to stacks of CreationInfo objects.
+     */
+    Map<Long, Stack<CreationInfo>> creations = new HashMap<Long, Stack<CreationInfo>>();
+
+    /**
+     * Debug related counters.  
+     */
+    private static Map<String, AtomicInteger> debugCounters
+        = new HashMap<String, AtomicInteger>();
+
+    /**
+     * Set approximation (meta) data for the object.
+     * @param o The object
+     * @param approx Whether object is approximate or not
+     * @param heap True if object is on heap; false false if object is on stack
+     * @param preciseSize Precise data size
+     * @param approxSize Approximative data size
+     * @return The phantom reference to the (enqueued) data
+     */
+    @Override
+    public PhantomReference<Object> setApproximate(
+        Object o, boolean approx, boolean heap, int preciseSize, int approxSize
+    ) {
+        if (debug) {
+            System.out.println("EnerJ: Add object " + System.identityHashCode(o)
+                + " to system.");
+            
+            // if (o instanceof Reference) {
+            //     @SuppressWarnings("unchecked")
+            //     Reference<Object> R = (Reference<Object>) o;
+            //     System.out.println("\tReference: "
+            //         + (R.value == null ? "NULL" : R.value.getClass().getName()));
+            // }
+            // else {
+            //     System.out.println("\tClass: " + o.getClass().getName());
+            // }
+        }
+
+        long time = System.currentTimeMillis();
+        ApproximationInformation infoObj =
+            new ApproximationInformation(time, approx, heap,
+                                         preciseSize, approxSize);
+        PhantomReference<Object> phantomRef = new PhantomReference<Object>(o, referenceQueue);
+
+        // Add to bookkeeping maps.
+        synchronized (this) {
+            if (approx)
+                info.put(o, infoObj);
+            phantomInfo.put(phantomRef, infoObj);
+        }
+
+        return phantomRef;
+    }
+
+    /**
+     * True if the some object is approximate, else false (if precise)
+     * @return true if the Object o is approximate
+     */
+    @Override
+    public boolean isApproximate(Object o) {
+        if (debug) {
+            System.out.println("EnerJ: Determine whether \"" 
+                + (o != null ? System.identityHashCode(o) : "null")
+                + "\" is approximate");
+        }
+        boolean approx;
+        synchronized (this) { // If it's approximate, then it must be in the 'info' hashmap
+            approx = info.containsKey(o);
+        }
+        return approx;
+    }
+
+    /**
+     * Get log2(x) of some x.
+     * @param num Input to logarithmic function
+     * @return log2(x) of some x
+     */
+    private double log2(double num) {
+        return Math.log(num)/0.6931471805599453; // Math.log(2);
+    }
+
+    /**
+     * Return the correct AnnotationType of the corresponding string.
+     * @param annotation Annotation type describing string
+     * @return The corresponding AnnotationType
+     */
+    private AnnotationType mapAnnotationType(String annotation) {
+        switch (annotation) {
+        case "Approx":
+            return AnnotationType.Approx;
+        case "Context":
+            return AnnotationType.Context;
+        case "Precise":
+            return AnnotationType.Precise;
+        default:
+            assert false; // Should be any of the other three
+            return null;
+        }
+    }
+
+    /**
+     * Import information about classes gathered at compile time. This file
+     * must exist for the operation to go further.
+     * @param fileName Name of the JSON file to be imported
+     */
+    private void importClassInfoAndInsertStaticData(String fileName) {
+        JSONObject jsonClasses, jsonFields, jsonField;
+        HashMap<String, FieldInfoContainer> fieldsInfo = null;
+        FieldInfoContainer fic;
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(fileName));
+            StringBuffer sb = new StringBuffer();
+            for(String line; (line = br.readLine()) != null; ) { // Loop over all lines
+                sb.append(line);
+            }
+            jsonClasses = new JSONObject(sb.toString());
+            
+            for (Iterator<String> itClasses = jsonClasses.keys(); itClasses.hasNext();) {
+                String keyClass = itClasses.next();
+                
+                if (debug)
+                    System.out.println(keyClass);
+                
+                jsonFields = jsonClasses.getJSONObject(keyClass);
+                fieldsInfo = new HashMap<String, FieldInfoContainer>();
+                for (Iterator<String> itField = jsonFields.keys();
+                        itField.hasNext();) {
+                    fic = new FieldInfoContainer();
+                    String keyField = itField.next();
+                    jsonField = jsonFields.getJSONObject(keyField);
+                    fic.annotation = ALLOW_APPROXIMATE ?
+                            mapAnnotationType(jsonField.getString("annotation")) :
+                                AnnotationType.Precise;
+                    fic.isStatic = jsonField.getBoolean("static");
+                    fic.isFinal = jsonField.getBoolean("final");
+                    fic.fieldType = jsonField.getString("type");
+                    if (debug) {
+                        System.out.print("\t" + keyField + " – ");
+                        System.out.println(fic.toString());
+                    }
+                    fieldsInfo.put(keyField, fic);
+                    
+                    // Put static members into static memory area.
+                    // Context is set to always be precise, as setting it as
+                    // Context would be meaningless and we also want to be sure
+                    // it doesn't behavior in some unintended way.
+                    
+                    // TODO: wrote this late at night; might need some cleanup,
+                    // code factorization and checks if it's really consistent   
+                    // Put static members into static memory area
+                    if (fic.isStatic) {
+                        // Whether or not the field is a reference and therefore
+                        // should be placed in the precise memory area should
+                        // have been determined earlier. 
+                        boolean approx = fic.annotation == AnnotationType.Approx; // Checking for Context is meaningless
+                        long mem = allocateMemoryAux(fic.fieldType, approx);
+                        long tim = System.currentTimeMillis();
+                        int preciseSize=0, approxSize=0, fieldSize = numQytes(fic.fieldType, approx);
+                        if (approx)
+                            approxSize = fieldSize;
+                        else
+                            preciseSize = fieldSize;
+                        AddressInformation addrInfo =
+                                new AddressInformation(tim, approx, true, preciseSize,
+                                        approxSize, mem);
+                        String key = STATIC_STRING + keyField; // Workaround…
+                        memorySpace.put(key, addrInfo);
+                    }
+                }
+                classInfo.put(keyClass, fieldsInfo);
+            }
+            br.close();
+        }
+        catch (JSONException e) {
+            System.err.println("Error while parsing JSONObject.");
+            // e.printStackTrace();
+            System.exit(1); // No idea to continue beyond this point
+        }
+        catch (IOException e) {
+            System.err.println("Error while reading class data from file.");
+            System.exit(1); // No idea to continue beyond this point
+        }
+    }
+
+    /**
+     * Start threads that perform logging and cleanup tasks during runtime.
+     * Add hook thread for final cleanup stage when JVM shuts down.
+     */
+    private void startCleanUpThreads() {
         final Thread deallocPollThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                deallocPoll();
+                // Loop that continuously removes items from PhantomReference queue
+                deallocPoll(); 
             }
         });
         deallocPollThread.setDaemon(true); // Automatically shut down.
         deallocPollThread.start();
 
+        // Perform cleanup operations when JVM shuts down
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             @Override
             public void run() {
@@ -424,37 +1148,222 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                 dumpCounts();
             }
         }));
+    }
+
+    public PrecisionRuntimeTolop(int cacheSize,
+                                   int cacheLineSize,
+                                   int sramAssociativity,
+                                   String classInfoFilename) {
+        super();
+
+        startup = System.currentTimeMillis();
+
+        /* Initialize cache hierarchy
+         * Line size for caches are 64 bytes = 16 words in i7, etc
+         * http://stackoverflow.com/a/15333156/1283083
+         * 2048 is a guessed number for L1
+         * (Found 32768 for local machine, but still)
+         */
+        this.cacheSize = cacheSize;
+        this.cacheLineSizeInWords = cacheLineSize;
+        this.cacheLineSizeInBytes = cacheLineSizeInWords*wordSize;
+        this.sramAssociativity = sramAssociativity;
+        
+        if (cacheSize % cacheLineSizeInWords != 0) {
+            System.err.println("Unallowed cache- or cacheline size");
+            System.err.println("Cache size must be congruent the cacheline size");
+            System.exit(1);
+        }
+
+        // Only direct mapped or associativity in multiples of 2 are allowed
+        if (sramAssociativity < 0 || sramAssociativity != 1 && sramAssociativity % 2 != 0) {
+            System.err.println("Unallowed associativity");
+            System.err.println("Cache associativity value must be positive and "
+                    + "direct mapped or a multiple of 2");
+            System.exit(1);
+        }
+        
+        nIndexes = (cacheSize/sramAssociativity) / (cacheLineSizeInBytes); // Default = 8
+        nCacheLinesBits = (int)log2((double)nIndexes); // Default = 4
+        nApproxWordsPerLineBits = (int)log2((double)cacheLineSizeInWords); // Default = 4
+
+        if (debug) {
+            System.out.println(String.format("cacheSize: %d\ncacheLineSize: %d\n"+
+                    "sramAssociativity: %d\nnIndexes: %d\nnApproxWordsPerLineBits: %d\n",
+                    cacheSize, cacheLineSizeInWords, sramAssociativity,
+                    nIndexes, nApproxWordsPerLineBits));
+        }
+        
+        // Array for cache lines; inner hash map for the n different associative ways
+        // Maps address tag -> time data
+        sramContainer = new ArrayList<HashMap<Long, TimeTuple>>();
+        for (int i = 0; i < nIndexes; i++) {
+            sramContainer.add(new HashMap<Long, TimeTuple>()); // New hash map from 0 -> nIndexes    
+        }
+        
+        // Compute mask used for getting address tags
+        int tagSize = addressSizeBits - (nCacheLinesBits + nApproxWordsPerLineBits + offsetBits);
+        tagMask = ((long)Math.pow(2, tagSize)-1) << (addressSizeBits-tagSize);
+        
+        // In debug mode: initialize debug counters
+        if (debug) {
+            debugCounters.put("beforeCounter", new AtomicInteger());
+            debugCounters.put("enterCounter", new AtomicInteger());
+            debugCounters.put("afterCounter", new AtomicInteger());
+            debugCounters.put("insertedArraysCounter", new AtomicInteger());
+            debugCounters.put("missingKeyCounter", new AtomicInteger());
+        }
+        
+        ALLOW_APPROXIMATE = Boolean.parseBoolean(System.getProperty("AllowApproximate", "true"));
+        if (debug)
+            System.out.println("Setting AllowApproximate to " + ALLOW_APPROXIMATE);
+
+        // Import class information, such as approx/precise annotations
+        // Also, insert any static members to memory
+        importClassInfoAndInsertStaticData(classInfoFilename);
+
+        // After inserting static memory, pad both memory spaces so that
+        // other memory doesn't go into the same cache lines as static
+        // padMemory(true);
+        padMemory(false);
+
+        startCleanUpThreads();
 
         doNoisyConstructorThings();
     }
 
     /**
-     * Mapping Thread IDs to stacks of CreationInfo objects.
+     * Starts a cleanup loop upon construction for the PhantomReferences.
+     * Also, it creates a shutdown hook (a thread that starts when the JVM shuts
+     * down), that cleans up objects and dumps count measurements.
+     * @param cacheSize Total size of the cache
+     * @param cacheLineSize Size of one cache line
+     * @param sramAssociativity Cache associativity 
      */
-    Map<Long, Stack<CreationInfo>> creations = new HashMap<Long, Stack<CreationInfo>>();
+    public PrecisionRuntimeTolop(int cacheSize,
+                                 int cacheLineSize,
+                                 int sramAssociativity) {
+        this(cacheSize, cacheLineSize, sramAssociativity, JSON_INPUT_FILE_NAME);
+    }
 
+    /**
+     * Starts a cleanup loop upon construction for the PhantomReferences.
+     * Also, it creates a shutdown hook (a thread that starts when the JVM shuts
+     * down), that cleans up objects and dumps count measurements.
+     * @param classInfoFilename JSON file to import class info data from
+     */
+    public PrecisionRuntimeTolop(String classInfoFilename) {
+        this(Integer.parseInt(System.getProperty("CacheSize", "2048")), // In qytes, not bytes
+                Integer.parseInt(System.getProperty("CacheLineSize", "16")), // Quad-words, not byte-words
+                        Integer.parseInt(System.getProperty("CacheAssociativity", "4")), //Default: 4-way
+                            classInfoFilename);
+    }
+
+    /**
+     * Starts a cleanup loop upon construction for the PhantomReferences.
+     * Also, it creates a shutdown hook (a thread that starts when the JVM shuts
+     * down), that cleans up objects and dumps count measurements.
+     */
+    public PrecisionRuntimeTolop() {
+        this(System.getProperty("jsonInputName", JSON_INPUT_FILE_NAME));
+    }
+
+    /**
+     * Sort all member fields in an object in decreasing size order.  
+     * @param created The object, whose fields are about to be sorted
+     * @return A list of the sorted fields
+     */
+    // private List<Map.Entry<Field, Integer>> sortClassFields(Object created) {
+    private List<Map.Entry<MyTuple<String, Field>, Integer>> sortClassFields(Object created) {
+        Map<MyTuple<String, Field>, Integer> unSortedClassFieldTups
+            = new HashMap<MyTuple<String, Field>, Integer>();
+        
+        // Sort fields in descending size order
+        Class<?> createdClass = created.getClass();
+        while (createdClass != null) {
+            Field[] theFields = createdClass.getDeclaredFields();
+            for (Field someField : theFields) {
+                unSortedClassFieldTups.put(new MyTuple(createdClass.getName(), someField),
+                        prioritizeType(someField.getType().getName()));
+            }
+            createdClass = createdClass.getSuperclass();    // Traverse unto superclass
+        }
+        List<Map.Entry<MyTuple<String, Field>, Integer>> sortedClassFields =
+                new LinkedList<Map.Entry<MyTuple<String, Field>, Integer>>(unSortedClassFieldTups.entrySet());
+        Collections.sort(sortedClassFields, new Comparator<Map.Entry<MyTuple<String, Field>, Integer>>() {
+            @Override
+            public int compare(Entry<MyTuple<String, Field>, Integer> obj1,
+                    Entry<MyTuple<String, Field>, Integer> obj2) {
+                return (obj2.getValue()).compareTo(obj1.getValue());
+            }
+        });
+        
+        return sortedClassFields;
+    }
+
+    /**
+     * Allocate memory for the specified data type.
+     * @param typeName Name of the type to allocate
+     * @param approx Whether the allocated memory is approximate or not
+     * @return Starting address of the allocated space
+     */
+    private long allocateMemoryAux(String typeName, boolean approx) {
+        int fieldSize = numQytes(typeName, approx);
+        // Check that we don't span over two cache lines for an object
+        long cacheLineSpaceLeft = cacheLineSizeInBytes - peekAddress(approx) % cacheLineSizeInBytes;
+        // If so, add padding to preserve alignment
+        if (cacheLineSpaceLeft < fieldSize)
+            getAddress(cacheLineSpaceLeft, approx);
+        return getAddress(fieldSize, approx);
+    }
+
+    /**
+     * Pad out the rest of a cache line size to enforce memory alignment.
+     * @param approx Whether to pad the approximate memory space or not
+     * @return Starting address of the aligned memory 
+     */
+    private long padMemory(boolean approx) {
+        int locCacheLineSize = cacheLineSizeInWords * wordSize;
+        long cacheLineByte = peekAddress(approx) % locCacheLineSize;
+        long cacheLineSpaceLeft;
+        if (0 != cacheLineByte) { // If we are not aligned: pad out the rest of the cache line
+            cacheLineSpaceLeft = locCacheLineSize - peekAddress(approx) % locCacheLineSize;
+            getAddress(cacheLineSpaceLeft, approx);
+        }
+        return peekAddress(approx);
+    }
+    
+    /** 
+     * Called immediately before the creation of a new object.
+     * @param creator Creating (parent) object
+     * @param approx Whether the object is approximative or not
+     * @param preciseSize Size of a precise object 
+     * @param approxSize Size of an approximative object
+     * @return true if operation went well, else false; although, this implementation
+     * always returns true
+     */
     @Override
     public boolean beforeCreation(Object creator, boolean approx,
                                   int preciseSize, int approxSize) {
         if (debug) {
-            System.out.println("EnerJ: before creator \"" + System.identityHashCode(creator)
+            System.out.println("EnerJ: before creator \""
+                    + System.identityHashCode(creator)
                     + "\" creates new " + (approx ? "approximate" : "precise")
-                    + " object");
+                    + " object of sizes P" + preciseSize + "/A" + approxSize);
+            // Creator happens often (almost) always to be 'java.lang.Thread' 
+            debugCounters.get("beforeCounter").incrementAndGet(); // DEBUG
         }
-        CreationInfo c = new CreationInfo();
-        c.creator = creator;
-        c.approx = approx;
-        c.preciseSize = preciseSize;
-        c.approxSize = approxSize;
+        // To pass info on to enterConstructor
+        CreationInfo c = new CreationInfo(creator, approx, preciseSize, approxSize);
 
-        long tid = Thread.currentThread().getId();
+        long tid = Thread.currentThread().getId(); // Current thread id
 
-        Stack<CreationInfo> stack = creations.get(tid);
-        if (stack==null) {
+        Stack<CreationInfo> stack = creations.get(tid); // Get info stack based on current thread ID
+        if (stack==null) { // …or create a new if first time accessed
             stack = new Stack<CreationInfo>();
         }
-        stack.push(c);
-        creations.put(tid, stack);
+        stack.push(c); // Insert the new object info onto the stack
+        creations.put(tid, stack); // …and save it into the hash map
 
         return true;
     }
@@ -462,51 +1371,163 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     @Override
     public boolean enterConstructor(Object created) {
         if (debug) {
-            System.out.println("EnerJ: enter constructor for object \"" + System.identityHashCode(created) + "\"");
+            System.out.println("EnerJ: enter constructor for object \""
+                + System.identityHashCode(created) + "\"");
+            System.out.println("\t" + created.getClass().getName());
+            debugCounters.get("enterCounter").incrementAndGet(); // DEBUG
         }
+
         Stack<CreationInfo> stack = creations.get(Thread.currentThread().getId());
 
+        // Handle non-EnerJ behavior
         if (stack==null) {
             if (debug) {
-                System.out.println("EnerJ: enter constructor for object \"" + System.identityHashCode(created) + "\" found a null stack.");
+                System.out.println("EnerJ: enter constructor for object \""
+                    + System.identityHashCode(created)
+                    + "\" found a null stack.");
             }
             // probably instantiated from non-EnerJ code
             return false;
         }
-
         if (stack.size()<=0) {
             if (debug) {
-                System.out.println("EnerJ: enter constructor for object \"" + System.identityHashCode(created) + "\" found an empty stack.");
+                System.out.println("EnerJ: enter constructor for object \""
+                    + System.identityHashCode(created)
+                    + "\" found an empty stack.");
             }
             // probably instantiated from non-EnerJ code
             return false;
         }
 
-        CreationInfo c = stack.pop();
+        CreationInfo c = stack.pop(); // Get the lastly pushed object info
 
-        // we cannot compare c.creator; we assume that there is no thread interleaving
-        // between the call of beforeCreation and enterConstructor.
-        // TODO: some methods should probably be synchronized, but I think this
-        // wouldn't help against this particular problem.
-        this.setApproximate(created, c.approx, true,
-                            c.preciseSize, c.approxSize);
+        /* We cannot compare c.creator; we assume that there is no thread interleaving
+           between the call of beforeCreation and enterConstructor.
+           TODO: Some methods should probably be synchronized, but I think this
+           wouldn't help against this particular problem.
+        */ 
+        this.setApproximate(created, c.approx, true, c.preciseSize, c.approxSize);
+
+        int approxSize = 0, preciseSize = 0;
+        
+        // Sort all fields in decreasing size order
+        List<Map.Entry<MyTuple<String, Field>, Integer>> sortedClassFields
+            = sortClassFields(created);
+
+        HashMap<String, FieldInfoContainer> fieldsInfo;
+
+        FieldInfoContainer fic;
+        boolean approx;
+        String className = null;
+        long tim = System.currentTimeMillis(); // Time stamp of creation
+        synchronized (this) {
+        for (Map.Entry<MyTuple<String, Field>, Integer> e : sortedClassFields) {
+            // Static fields lives in the static area and should'nt be allocated
+            MyTuple<String, Field> classFieldTup = e.getKey();
+
+            className = classFieldTup.x.contains("$") ?
+                classFieldTup.x.replace('$','.') :
+                classFieldTup.x;
+
+            if (Modifier.isStatic(classFieldTup.y.getModifiers()))
+                continue;
+
+            String fieldname = classFieldTup.y.getName();
+
+            // Get class annotation info
+            // This must exist, otherwise the program execution cannot proceed
+            if (!classInfo.containsKey(className)) {
+                System.err.println("PANIC: " + className + " doesn't exist.");
+                System.exit(1);
+            }
+            
+            fieldsInfo = classInfo.get(className);
+                        
+            // If there's no available class info from previous compilation,
+            // there's no meaning to continue: crash and burn
+            if (!fieldsInfo.containsKey(fieldname)) {
+                System.err.println("Class " + className
+                    + " doesn't contain field " + fieldname
+                    + "; please check the inout JSON file.");
+                System.err.println("fieldsInfo: " + fieldsInfo.toString());
+                System.exit(1);
+            }
+
+            fic = fieldsInfo.get(fieldname);
+            if (ALLOW_APPROXIMATE) {
+                switch (fic.annotation) {
+                    case Approx:
+                        approx = true;
+                        break;
+                    case Precise:
+                        approx = false;
+                        break;
+                    default: // Context
+                        approx = c.approx;
+                        break;
+                    }
+            }
+            else {
+                approx = false; // Force to always be precise
+            }
+            
+            // Allocate the memory
+            long mem = allocateMemoryAux(fic.fieldType, approx);
+
+            // Compute approximate or precise size
+            int fieldSize = numQytes(fic.fieldType, approx);
+            if (approx) {
+                approxSize = fieldSize;
+            }
+            else {
+                preciseSize = fieldSize;
+            }
+            
+            // Register allocated memory
+            AddressInformation addrInfo =
+                    new AddressInformation(tim, approx, true, preciseSize,
+                            approxSize, mem);
+            String key = memoryKey(created, fieldname);
+            memorySpace.put(key, addrInfo);
+            if (debug) {
+                System.out.println(
+                      "\t" + Modifier.toString(e.getKey().y.getModifiers())
+                    + " " + e.getKey().y.getType().getName()
+                    + " " + fieldname); //DEBUG
+            }
+        }
+        }
 
         return true;
     }
 
+    /**
+     * (Can be) called immediately after an object was created.
+     * @param creator The creating object (parent instance)
+     * @param created Some created object (child instance)
+     * @return true if there are objects created in this thread; otherwise false
+     */
     @Override
     public boolean afterCreation(Object creator, Object created) {
         if (debug) {
             System.out.println("EnerJ: after creator \"" + System.identityHashCode(creator)
                     + "\" created new object \"" + System.identityHashCode(created) + "\"");
+            System.out.println(String.format("EnerJ: %s -> %s",
+                    creator.getClass().getName(), created.getClass().getName())); //DEBUG
+            debugCounters.get("afterCounter").incrementAndGet(); //DEBUG
         }
+
         Stack<CreationInfo> stack = creations.get(Thread.currentThread().getId());
-        // Could stack ever be null? I guess not, b/c "afterC" is only called, if "beforeC" was called earlier.
+        // Could stack ever be null? I guess not, b/c "afterC" is only called,
+        // if "beforeC" was called earlier.
 
         if (stack.size()<=0) {
             if (debug) {
-                System.out.println("EnerJ: after creator \"" + System.identityHashCode(creator)
-                        + "\" created new object \"" + System.identityHashCode(created) + "\" found an empty stack.");
+                System.out.println("EnerJ: after creator \""
+                        + System.identityHashCode(creator)
+                        + "\" created new object \""
+                        + System.identityHashCode(created)
+                        + "\" found an empty stack.");
             }
             // no worries, the stack must have been emptied in enterConstructor
             return false;
@@ -515,34 +1536,72 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         CreationInfo c = stack.peek();
 
         if (c.creator == creator) {
-            this.setApproximate(created, c.approx, true,
-                                c.preciseSize, c.approxSize);
+            this.setApproximate(created, c.approx, true, c.preciseSize, c.approxSize);
             if (c.approx) {
                 stack.pop();
             }
         } else {
             if (debug) {
-                System.out.println("EnerJ: after creator \"" + System.identityHashCode(creator)
-                        + "\" created new object \"" + System.identityHashCode(created)
+                System.out.println("EnerJ: after creator \""
+                        + System.identityHashCode(creator)
+                        + "\" created new object \""
+                        + System.identityHashCode(created)
                         + "\" found mismatched creator \"" + c.creator + "\".");
             }
             // if the creators do not match, the entry was already removed.
         }
 
+        // DEBUG
+        if (debug) {
+            System.out.println(
+                    String.format("afterCreation: %s: preciseSize = %d - approxSize = %d",
+                            created.getClass().getName(), c.preciseSize, c.approxSize));
+            if (c.preciseSize != 0 && c.approxSize !=0) { // Mixed setting - interesting
+                System.out.println("Note: both precise/approx values present");
+            }
+            
+            // Fields inside 'created'
+            Field[] allFields = created.getClass().getDeclaredFields();
+            for (Field f : allFields) {
+                System.out.println("\t" + Modifier.toString(f.getModifiers())
+                    + " " + f.getType().getName() + " " + f.getName()); //DEBUG
+            }
+        }
+
         return true;
     }
 
+    /**
+     * Wrapper method for afterCreation.
+     * @param before (Not in use)
+     * @param created Some created object
+     * @param creator The creator of the (newly) created object
+     * @return created
+     */
     @Override
     public <T> T wrappedNew(boolean before, T created, Object creator) {
         afterCreation(creator, created);
         return created;
     }
 
+    /**
+     * Gather info about a created array.
+     * @param created The created array
+     * @param dims Array dimensions (?)
+     * @param approx Whether the array is approximate or not
+     * @param preciseElSize Size of precise elements
+     * @param approxElSize Size of approximate elements
+     * @return created The created array (i.e. input argument 'created')
+     */
     @Override
     public <T> T newArray(T created, int dims, boolean approx,
                           int preciseElSize, int approxElSize) {
         int elems = 1;
         Object arr = created;
+        if (!ALLOW_APPROXIMATE) // Turn off approximativity if precise objects only
+            approx = false;
+
+        // Calculate total size from all dimensions
         for (int i = 0; i < dims; ++i) {
             elems *= Array.getLength(arr);
             if (Array.getLength(arr) == 0)
@@ -550,41 +1609,52 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             if (i < dims - 1)
                 arr = Array.get(arr, 0);
         }
+        this.setApproximate(created, false, true,
+                preciseElSize*elems, approxElSize*elems);
 
         if (!approx) {
             preciseElSize += approxElSize;
             approxElSize = 0;
         }
 
-        this.setApproximate(created, false, true,
-                            preciseElSize*elems, approxElSize*elems);
+        // Create addresses – first pointers (references), then values
+        // References are _always_ precise => approx == false
+        assignAddressesToArrayItems(created, false, false); // References
+        
+        // If the array is approximative, pad out after the references, i.e.,
+        // the precise memory space now already; else don't, as more precise
+        // data could be put after after these.
+        int wastedSpace;
+        if (approx) {
+            wastedSpace = (int)(peekAddress(false) % cacheLineSizeInBytes);
+            if (wastedSpace != 0 && padCacheLines) {
+                getAddress(cacheLineSizeInBytes - wastedSpace, approx);  
+            }
+        }
+        
+        assignAddressesToArrayItems(created, approx, true);  // Values
+        // Eventually pad the rest of a non-filled cache-line
+        wastedSpace = (int)(peekAddress(approx) % cacheLineSizeInBytes);
+        if (wastedSpace != 0 && padCacheLines) {
+            getAddress(cacheLineSizeInBytes - wastedSpace, approx);  
+        }
 
         if (debug) {
             System.out.println("EnerJ: created array \"" +
                 System.identityHashCode(created) +
                 "\" with size " + elems);
+            debugCounters.get("insertedArraysCounter").incrementAndGet();
         }
 
         return created;
     }
 
-    /*
-    @Override
-    public boolean isApproximate(Object o, String field) {
-        PrecisionInformation entry = info.get(o);
-        return entry != null && entry.isApproximate(field);
-    }
-
-    @Override
-    public PrecisionInformation createPrecisionInfo() {
-        // alternatively, create the pi object in addObject and let the user
-        // modify the values afterward
-        return new PrecisionInformationDefault();
-    }
-    */
-
-
-    // Counting infrastucture.
+    /**
+     * Counting infrastructure, keeps track number of operations 
+     * @param name Name of the operation, namely what arithmetic operation took
+     * place with what type
+     * @param approx Whether operation is approximate or not
+     */
     private synchronized void countOperation(String name, boolean approx) {
         Map<String, Integer> map = null;
         if (approx)
@@ -598,9 +1668,16 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         }
     }
 
+    /**
+     * Add values to data counters. Must be run synchronously. 
+     * @param name Name of post, e.g. "heap-objects" or "stack-bytes" 
+     * @param approx Whether object is approximate or not
+     * @param amount (Additional) value of name
+     */
     private synchronized void countFootprint(String name, boolean approx,
                                              long amount) {
         Map<String, Long> map = null;
+        // Precise or approximate object? Choose map accordingly. 
         if (approx)
             map = approxFootprint;
         else
@@ -611,6 +1688,12 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             map.put(name, amount);
         }
     }
+
+    /**
+     * Gathers all data about created objects, sizes etc about all precise and
+     * approximate data and writes the results as the JSON open standard format
+     * to the file "enerjstats.json".
+     */
     private synchronized void dumpCounts() {
         JSONStringer stringer = new JSONStringer();
         try {
@@ -664,11 +1747,38 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         }
 
         String out = stringer.toString();
+        
+        if (debug) {
+            System.out.println(out);
+            for (Map.Entry<String,AtomicInteger> entry : debugCounters.entrySet()) { //DEBUG
+                System.out.println(String.format("%s - %d",
+                        (String)entry.getKey(),
+                        ((AtomicInteger)entry.getValue()).get()));
+            }
+        }
+        
+        // Write TOLOP related stats to file
+        try {
+            BufferedWriter bw = new BufferedWriter(new FileWriter("tolop_stats.txt"));
+            bw.write(memOpInfo.toString());
+            bw.close();
+        }
+        catch (IOException e) {
+            System.err.println("Error while writing (new) EnerJ results to file…");
+            //e.printStackTrace();
+        }
+        if (debug) { // Same as dump to file above
+            System.out.println();
+            memOpInfo.printMemOpCounters();
+        }
+
+        // Write classical EnerJ stats to file
+        // TODO: remove this (and much else)
         if (debug) {
             System.out.println(out);
         }
         try {
-            FileWriter fstream = new FileWriter("enerjstats.json");
+            FileWriter fstream = new FileWriter(JSON_OUTPUT_FILE_NAME);
             fstream.write(out);
             fstream.close();
         } catch (IOException exc) {
@@ -676,7 +1786,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         }
     }
 
-    // Object finalization calls.
+    /**
+     * Object finalization calls. Log object lifetime, etc.
+     * @param ref The collected object reference (was collected in deallocPoll).    
+     */
     @Override
     public synchronized void endLifetime(PhantomReference<Object> ref) {
         ApproximationInformation infoObj;
@@ -706,7 +1819,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         }
     }
 
-    // A thread that waits for finalizations.
+    /**
+     * A thread that waits for finalizations. 
+     */
+    @SuppressWarnings("unchecked")
     private void deallocPoll() {
         while (true) {
             PhantomReference<Object> ref = null;
@@ -723,7 +1839,9 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         }
     }
 
-    // Called on shutdown to collect all remaining objects.
+    /**
+     * Called on shutdown to collect all remaining objects.
+     */
     private synchronized void cleanUpObjects() {
         if (debug)
             System.out.println("EnerJ: objects remaining at shutdown: " +
@@ -734,6 +1852,11 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         }
     }
 
+    /**
+     * Convert an arithmetic representation to its equivalent string.
+     * @param op Enum representation of a arithmetic operator.
+     * @return String of corresponding operator.
+     */
     protected String opSymbol(ArithOperator op) {
         switch (op) {
         case PLUS: return "+";
@@ -748,9 +1871,11 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     // Simulated operations.
 
 
-    // This is a little incongruous, but this just counts some integer
-    // operations that we don't want to instrument but are always done
-    // precisely.
+    /**
+     * This is a little incongruous, but this just counts some integer
+     * operations that we don't want to instrument but are always done
+     * precisely.
+     */
     @Override
     public <T> T countLogicalOp(T value) {
         countOperation("INTlogic", false);
@@ -888,8 +2013,13 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     }
 
 
-    // Look for a field in a class hierarchy.
-    protected Field getField(Class<?> class_, String name) {
+    /**
+     * Look for a field in a class hierarchy.
+     * @param class_ The class
+     * @param name Field name
+     * @return Field representation of the class field.
+     */
+    protected Field getField(Class<?> class_, String name) {  // TODO: This can surely be re-used on some places
         while (class_ != null) {
             try {
                 return class_.getDeclaredField(name);
@@ -903,6 +2033,14 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 
     /**
      * Simulated accesses
+     */
+
+    /**
+     * Simulated operation of storing a value of some (specified) kind.
+     * @param value The stored value
+     * @param approx Whether the value is approximate or not
+     * @param kind Any of three kinds of stored values
+     * @return The stored (unaltered) value
      */
     @Override
     public <T> T storeValue(T value, boolean approx, MemKind kind) {
@@ -920,6 +2058,13 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         return value;
     }
 
+    /**
+     * Simulated operation of loading a value of some (specified) kind.
+     * @param value The loaded value
+     * @param approx Whether the value is approximate or not
+     * @param kind Any of three kinds of stored values
+     * @return The loaded value
+     */
     @Override
     public <T> T loadValue(T value, boolean approx, MemKind kind) {
         countOperation("load" + kind, approx);
@@ -927,7 +2072,9 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     }
 
     /**
-     * SRAM read upsets
+     * Load a local value.
+     * @param ref Value reference
+     * @param approx Whether the value is approximate or not
      */
     @Override
     public <T> T loadLocal(Reference<T> ref, boolean approx) {
@@ -941,13 +2088,23 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         return val;
     }
 
+    /**
+     * Load a value from an array.
+     * @param array The array
+     * @param index The corresponding index to be loaded
+     * @param approx Whether the value is approximate or not
+     */
+    @SuppressWarnings("unchecked")
     @Override
     public <T> T loadArray(Object array, int index, boolean approx) {
+        String key = memoryKey(array, index);
+        loadFromMemory(key);
+        
         T val = loadValue((T) Array.get(array, index), approx, MemKind.ARRAYEL);
 
         // NOISY
         if (approx) {
-            T aged = dramAgedRead(dramKey(array, index), val);
+            T aged = dramAgedRead(memoryKey(array, index), val);
             if (aged != val) {
                 val = aged;
 
@@ -957,6 +2114,13 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         return val;
     }
 
+    /**
+     * Load a class field.
+     * @param obj The object to get the field from
+     * @param fieldname Name of the field
+     * @param approx Whether the value is approximate or not
+     */
+    @SuppressWarnings("unchecked")
     @Override
     public <T> T loadField(Object obj, String fieldname, boolean approx) {
         T val;
@@ -973,8 +2137,15 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             Field field = getField(class_, fieldname);
             field.setAccessible(true);
 
-            // in = obj.fieldname;
+            // TOLOP
+            // Load from simulated memory hierarchy
+            if (null != obj) {
+                String key = memoryKey(obj, fieldname);
+                loadFromMemory(key);
+            }
+
             val = loadValue((T) field.get(obj), approx, MemKind.FIELD);
+
 
         } catch (IllegalArgumentException x) {
             System.err.println("reflection error!");
@@ -986,7 +2157,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 
         // NOISY
         if (approx) {
-            T aged = dramAgedRead(dramKey(obj, fieldname), val);
+            T aged = dramAgedRead(memoryKey(obj, fieldname), val);
             if (aged != val) {
                 val = aged;
 
@@ -1013,30 +2184,58 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         return val;
     }
 
+    /**
+     * Store a local value.
+     * @param ref Value reference, will be updated by rhs
+     * @param approx Whether the value is approximate or not
+     * @param rhs The value to be stored
+     * @return The stored value
+     */
     @Override
     public <T> T storeLocal(Reference<T> ref, boolean approx, T rhs) {
         ref.value = storeValue(rhs, approx, MemKind.VARIABLE);
         return ref.value;
     }
 
+    /**
+     * Store a value in some array.
+     * @param array The array
+     * @param index The corresponding index of where to store the new value
+     * @param approx Whether the value is approximate or not
+     * @param rhs The value to be stored
+     * @return The stored value
+     */
     @Override
     public <T> T storeArray(Object array, int index, boolean approx, T rhs) {
         T val = storeValue(rhs, approx, MemKind.ARRAYEL);
         Array.set(array, index, val);
 
+        // TOLOP
+        // Store into simulated memory hierarchy
+        String key = memoryKey(array, index);
+        storeIntoMemory(key);
+
         // NOISY
-        dramRefresh(dramKey(array, index), val);
+        dramRefresh(key, val);
 
         return val;
     }
 
+    /**
+     * Store a class field.
+     * @param obj The object into which the field should be stored 
+     * @param fieldname Name of the field
+     * @param approx Whether the value is approximate or not
+     * @param rhs The value to be stored
+     * @return The stored value
+     */
     @Override
     public <T> T storeField(Object obj,
                             String fieldname,
                             boolean approx,
                             T rhs) {
         T val = storeValue(rhs, approx, MemKind.FIELD);
-
+        Field field;
         try {
             // In static context, allow client to call this method with a Class
             // object instead of an instance.
@@ -1047,7 +2246,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             } else {
                 class_ = obj.getClass();
             }
-            Field field = getField(class_, fieldname);
+            field = getField(class_, fieldname);
             field.setAccessible(true);
 
             // obj.fieldname = val;
@@ -1061,13 +2260,30 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             return null;
         }
 
+        // TOLOP
+        // Store into simulated memory hierarchy
+        String key = memoryKey(obj, fieldname);
+        storeIntoMemory(key);
+
         // NOISY
-        dramRefresh(dramKey(obj, fieldname), val);
+        dramRefresh(key, val);
 
         return val;
     }
 
-    // Fancier assignments.
+    /**
+     * Compute var and rhs using op. 
+     * @param var Left hand side value
+     * @param op Mathematical operator 
+     * @param rhs Right hand side value
+     * @param returnOld true - return old value from val; false - return
+     * computation from {var}{op}{rhs}.
+     * @param nk Specifies the type of the variables
+     * @param approx Whether the operation is approximate or not
+     * @return If returnOld is true, return computed value; else, return
+     * the old value from var
+     */
+    @SuppressWarnings("unchecked")
     @Override
     public <T extends Number> T assignopLocal(
         Reference<T> var,
@@ -1086,6 +2302,12 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             return res;
     }
 
+    /**
+     * Return the value interpreted as its defined corresponding type. 
+     * @param num The number
+     * @param nk The defined type (INT, FLOAT, etc)
+     * @return The value (of type specified by nk)
+     */
     private Number makeKind(Number num, NumberKind nk) {
         Number converted = null;
         switch (nk) {
@@ -1108,11 +2330,24 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             converted = num.byteValue();
             break;
         default:
-            assert false;
+            assert false; // Not an elementary type
         }
         return converted;
     }
 
+    /**
+     * Compute the value of {array[index]} {op} {rhs}. Store result at {array[index]}. 
+     * @param array Array to access 
+     * @param index Array index to access 
+     * @param op Arithmetical operation to use on array value
+     * @param rhs Right hand side of arithmetic operation (array value is lhs)
+     * @param returnOld If true, return old array value, else return result of operation
+     * @param nk The defined type (INT, FLOAT, etc)
+     * @param approx Whether the operation is approximate or not
+     * @return If returnOld is true, return computed value; else, return
+     * the old value from array[index]
+     */
+    @SuppressWarnings("unchecked")
     @Override
     public <T extends Number> T assignopArray(
         Object array,
@@ -1132,6 +2367,19 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             return res;
     }
 
+    /**
+     * Compute the value of {array[index]} {op} {rhs}. Store result at corresponding field.
+     * @param obj Object where the field resides
+     * @param fieldname Name of the field
+     * @param op Arithmetical operation to use on field value
+     * @param rhs Right hand side of arithmetic operation (field value is lhs)
+     * @param returnOld If true, return old field value, else return result of operation
+     * @param nk The defined type (INT, FLOAT, etc)
+     * @param approx Whether the operation is approximate or not
+     * @return If returnOld is true, return computed value; else, return
+     * the old value from the field
+     */
+    @SuppressWarnings("unchecked")
     @Override
     public <T extends Number> T assignopField(
         Object obj,
