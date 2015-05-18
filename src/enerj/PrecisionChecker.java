@@ -1,10 +1,14 @@
 package enerj;
 
 import java.lang.annotation.Annotation;
+import java.lang.StringBuffer;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Set;
+import java.util.Map;
+import java.util.HashMap;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
@@ -13,6 +17,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Types;
 
@@ -27,6 +32,18 @@ import checkers.types.AnnotatedTypeMirror.AnnotatedExecutableType;
 import checkers.util.AnnotationUtils;
 import checkers.util.ElementUtils;
 import checkers.util.GraphQualifierHierarchy;
+
+// Imports for master thesis {koltrast} //
+import checkers.util.TreeUtils; // For extracting data about fields
+import org.json.JSONObject;     // For creating JSON formatted data strings
+import org.json.JSONStringer;   // For creating JSON formatted data strings
+import org.json.JSONException;  // For creating JSON formatted data strings
+import java.io.FileWriter;      // For writing extracted data to file
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;     // For writing extracted data to file
+import java.io.File;
+// ------------------------------------ //
 
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.util.TreePath;
@@ -53,6 +70,14 @@ import enerj.rt.Reference;
  *   -Alint=strelaxed,mbdynamic
  * You will not get a warning about this...
  */
+/*
+ * Hallelujah!
+ * 1) https://deors.wordpress.com/2011/10/08/annotation-processors/
+ * 2) http://types.cs.washington.edu/checker-framework/current/api/
+ * ...and the fact that "enerjc" adds its custom Xbootclasspath, processorpath,
+ * etc, explains it all!
+ *#/gustaf
+ */
 public class PrecisionChecker extends InstrumentingChecker {
 	// Subtyping lint options
 	// We currently only have one option, STRELAXED.
@@ -78,6 +103,9 @@ public class PrecisionChecker extends InstrumentingChecker {
 	// The method name post-fixes that are used for approximate/precise methods
 	public static final String MB_APPROX_POST = "_APPROX";
 	public static final String MB_PRECISE_POST = "_PRECISE";
+
+    // File name to save gathered data to
+    public static final String JSON_OUTPUT_FILE_NAME = "object_field_info.json";
 
     public AnnotationMirror APPROX, PRECISE, TOP, CONTEXT;
 
@@ -315,7 +343,11 @@ public class PrecisionChecker extends InstrumentingChecker {
 	private static final int POINTER_SIZE = 8; // on 64-bit VM
 	private static final int LINE_SIZE = 64; // x86
 
-	// Get the size of a Reference (local variable) at runtime.
+	/**
+     * Get the size of a Reference (local variable) at runtime.
+     * @param ref "Reference object" to the object that one wants to know the size of
+     * @return [Precise size, Approximative size] array
+     */
 	public static <T> int[] referenceSizes(Reference<T> ref) {
 	    int preciseSize = 0;
 	    int approxSize = 0;
@@ -340,13 +372,19 @@ public class PrecisionChecker extends InstrumentingChecker {
         } else { // Object or array type.
             preciseSize = POINTER_SIZE;
         }
-
-	    return new int[] {preciseSize, approxSize};
+            return new int[] {preciseSize, approxSize};
 	}
 
-	// Get the size of a particular static type.
-	public static int[] typeSizes(AnnotatedTypeMirror type, boolean apprCtx, PrecisionChecker checker) {
-	    int preciseSize = 0;
+	/** Get the size of a particular static type
+     * @param type Type representation
+     * @param apprCtx If this is true and the annotation is "context", then the
+     * data is approximative
+     * @param checker Checker representation of (among others) EnerJ annotations
+     * @return Tuple [preciseSize, approxSize] of the represented type
+     */
+	public static int[] typeSizes(AnnotatedTypeMirror type, boolean apprCtx,
+                                  PrecisionChecker checker) {
+        int preciseSize = 0;
 	    int approxSize = 0;
 
 	    if (type.getKind() == TypeKind.DECLARED) {
@@ -367,7 +405,7 @@ public class PrecisionChecker extends InstrumentingChecker {
     	    case SHORT: size = 2; break;
     	    default: assert false;
     	    }
-
+            
             if (type.hasEffectiveAnnotation(checker.APPROX) ||
                     (apprCtx && type.hasEffectiveAnnotation(checker.CONTEXT)))
 	            approxSize += size;
@@ -378,7 +416,195 @@ public class PrecisionChecker extends InstrumentingChecker {
         return new int[]{preciseSize, approxSize};
 	}
 
-	// Get the size of an instance of a given class type (at compile time).
+    private static String annotationMap(AnnotationType annotation) {
+        switch (annotation) {
+        case Approx:
+            return "Approx";
+        case Context:
+            return "Context";
+        case Precise:
+            return "Precise";
+        default:
+            assert false;
+            return null;
+        }
+    }
+
+    /**
+     * Write the collected object, its fields, etc to the json file.
+     * @param objectName Name of the collected object about to be written
+     */
+    private static void writeToJSONFile(String objectName) {
+        // Import previously written file
+        Map<String, FieldInfoContainer> fields = classMap.get(objectName);
+        JSONObject jsonObject = null;
+        try {
+            File f = new File(JSON_OUTPUT_FILE_NAME); // Create new file if not exists
+            if(!f.exists())
+                f.createNewFile();
+
+            BufferedReader br = new BufferedReader(new FileReader(JSON_OUTPUT_FILE_NAME));
+            
+            StringBuffer sb = new StringBuffer();
+            for(String line; (line = br.readLine()) != null; ) {
+                sb.append(line);
+            }
+            jsonObject = sb.toString().isEmpty() ? new JSONObject() : // Imported JSON data, to be appended to 
+                new JSONObject(sb.toString());
+                
+            JSONObject newJSONField, newJsonClass = new JSONObject();
+            FieldInfoContainer fic;
+            for (Map.Entry<String, FieldInfoContainer> entry : fields.entrySet()) {
+                fic = entry.getValue();
+                newJSONField = new JSONObject();
+                newJSONField.put("annotation", fic.annotation);
+                newJSONField.put("type", fic.fieldType);
+                newJSONField.put("static", fic.isStatic);
+                newJSONField.put("final", fic.isFinal);
+                newJsonClass.put(entry.getKey(), newJSONField);
+            }
+            jsonObject.put(objectName, newJsonClass);
+
+            br.close();
+        }
+        catch (IOException e) {
+            System.err.println("Error while opening file!");
+            e.printStackTrace();
+            System.exit(1); // No idea to continue
+        }
+        catch (JSONException e) {
+            System.err.println("Error when writing stats file!");
+            e.printStackTrace();
+            System.exit(1); // No idea to continue
+        }
+        
+        try {
+            FileWriter fstream = new FileWriter(JSON_OUTPUT_FILE_NAME);
+            fstream.write(jsonObject.toString());
+            fstream.write("\n");
+            fstream.close();
+        } catch (IOException e) {
+            System.err.println("Error when writing stats file!");
+        }
+    }
+
+    private static void putIntoClassInfoMap(List<? extends Element> inheritedMemberList,
+                                            AnnotatedTypeFactory factory,
+                                            PrecisionChecker checker,
+                                            Map<String, FieldInfoContainer> classInfo) {
+        FieldInfoContainer fic;
+        for (VariableElement field : ElementFilter.fieldsIn(inheritedMemberList)) {
+            AnnotatedTypeMirror fieldType = factory.getAnnotatedType(field);
+            fic = new FieldInfoContainer();
+            
+            fic.fieldType = fieldType.getUnderlyingType().toString();
+            
+            if (fieldType.hasEffectiveAnnotation(checker.APPROX))
+                fic.annotation = AnnotationType.Approx;
+            else if (fieldType.hasEffectiveAnnotation(checker.CONTEXT))
+                fic.annotation = AnnotationType.Context;
+            else
+                fic.annotation = AnnotationType.Precise;
+
+            fic.isStatic = ElementUtils.isStatic(field);
+            fic.isFinal = ElementUtils.isFinal(field);            
+            classInfo.put(field.toString(), fic);
+            // bitmap = 0;
+        }
+    }
+
+    /**
+     * Gather information about some objects' fields and add that information +
+     * their types and annotations to a map.
+     * @param type The object (manifestation)
+     * @param factory Tools for extracting valid information from some field
+     * (in this case)
+     * @param typeutils Tools to extract the fields from the object (in this
+     * case) 
+     * @param checker Used to check for the sought annotions
+     */
+    private static void addToClassMap(AnnotatedTypeMirror type,
+                                      AnnotatedTypeFactory factory,
+                                      Types typeutils,
+                                      PrecisionChecker checker) {
+
+        String objectName = type.getUnderlyingType().toString();
+        
+        TypeElement current =
+            (TypeElement)typeutils.asElement(type.getUnderlyingType());
+        List<? extends Element> members = current.getEnclosedElements();
+        List< MyTuple<String, List<? extends Element>>> inheritedMembers =
+            new ArrayList< MyTuple< String, List<? extends Element>>>();
+        MyTuple<String, List<? extends Element>> currentTuple = 
+            new MyTuple<String, List<? extends Element>>(objectName, members);
+        inheritedMembers.add(currentTuple); // Add first object
+
+        // System.err.print(current.toString()); //DEBUG
+        // System.err.println("current.toString(): " + current.toString()); //DEBUG
+
+        TypeMirror supertypeMirror = current.getSuperclass(); // Start climbing upwards
+        // if (supertypeMirror.getKind() != TypeKind.NONE) { // Only traverse if declared object != java.lang.Object
+            // int countSuperClasses = 0;  //DEBUG
+            TypeElement supertypeElem;
+            // while (!supertypeMirror.toString().equals("java.lang.Object")) {
+            
+            // Keep going until java.long.Object is reached or until a parent
+            // that is already collected is found
+            while (supertypeMirror.getKind() != TypeKind.NONE &&    // Comparing type kind is faster
+                    !classMap.containsKey(supertypeMirror.toString())) { // TODO: include, but fix bug <--
+                // System.err.println("supertypeMirror.toString(): " + supertypeMirror.toString()); //DEBUG
+                // System.err.println("supertypeMirror.getKind() != TypeKind.NONE: " + (supertypeMirror.getKind() != TypeKind.NONE));    // Comparing type kind is faster
+                // System.err.println("!classMap.containsKey(supertypeMirror.toString()): " + (!classMap.containsKey(supertypeMirror.toString())));
+                // System.err.print(" -> (" + ++countSuperClasses + ") " + supertypeMirror.toString()); //DEBUG
+                supertypeElem = (TypeElement)((DeclaredType)supertypeMirror).asElement();   // Get supertype element
+                List<? extends Element> superMembers = supertypeElem.getEnclosedElements();
+                inheritedMembers.add(
+                    new MyTuple<String, List<? extends Element>>(supertypeMirror.toString(), superMembers));    // Extend the members list (TODO: might cause override collisions)
+                supertypeMirror = supertypeElem.getSuperclass();    // Get next superclass
+            }
+            // Reason of loop exit
+            // System.err.println("supertypeMirror.getKind() != TypeKind.NONE: " + (supertypeMirror.getKind() != TypeKind.NONE));    // Comparing type kind is faster
+            // System.err.println("!classMap.containsKey(supertypeMirror.toString()): " + (!classMap.containsKey(supertypeMirror.toString())));
+            // System.err.println();
+        // }
+        // System.err.println(); //DEBUG
+        
+        // Add support for (multiple) interfaces
+        // Later: isn't this implied from the implementing classes?
+        // for (TypeMirror supertypeInterface : current.getInterfaces()) { //DEBUG
+        //     System.err.print(" -> (" + ++countSuperClasses + ") [Interf.] " + supertypeInterface.toString());
+        //     supertypeElem = (TypeElement)((DeclaredType)supertypeInterface).asElement();   // Get supertype element
+        //     List<? extends Element> superMembers = supertypeElem.getEnclosedElements();
+        //     inheritedMembers.add(superMembers);
+        // }
+        // System.err.println(); //DEBUG
+
+        // Used to classify fields
+        // 16-static; 8-final; 4-approx; 2-context; 1-precise
+        // byte bitmap = 0;
+        
+        for (MyTuple<String, List<? extends Element>> inheritedMemberNameList : inheritedMembers) {
+            Map<String, FieldInfoContainer> classInfo =
+                new HashMap<String, FieldInfoContainer>();
+
+            putIntoClassInfoMap(inheritedMemberNameList.y, factory, checker, classInfo);
+            
+            // Put the info into the "global" info map        
+            classMap.put(inheritedMemberNameList.x, classInfo);
+            // Write the gathered data to a JSON output file
+            writeToJSONFile(inheritedMemberNameList.x);
+        }
+
+    }
+
+	/**
+     * Get the size of an instance of a given class type (at compile time)
+     * @param type Represented data type
+     * @param factory Used for getting annotated type
+     * @param typeutils Used for getting enclosed elements from a type
+     * @param checker Checker representation of (among others) EnerJ annotations
+     * @return 
+     */
 	public static int[] objectSizes(AnnotatedTypeMirror type,
 	                                AnnotatedTypeFactory factory,
 	                                Types typeutils,
@@ -387,18 +613,36 @@ public class PrecisionChecker extends InstrumentingChecker {
 	    int preciseSize = 0;
 	    int approxSize = 0;
 
-	    List<? extends Element> members =
-	        ((TypeElement)typeutils.asElement(type.getUnderlyingType())).getEnclosedElements();
+        // Gather information about all members and their notations
+        if (!classMap.containsKey(type.getUnderlyingType().toString())) {
+            // DEBUG
+            // if (type.hasEffectiveAnnotation(checker.APPROX))
+            //     System.err.print("Approx ");
+            // else if (type.hasEffectiveAnnotation(checker.CONTEXT))
+            //     System.err.print("Context ");
+            // else
+            //     System.err.print("Precise ");
+            // System.err.println(type.getUnderlyingType().toString());
+            
+            addToClassMap(type, factory, typeutils, checker);
+        }
 
-	    for (VariableElement field : ElementFilter.fieldsIn(members)) {
-	        AnnotatedTypeMirror fieldType = factory.getAnnotatedType(field);
-	        int[] sizes = typeSizes(fieldType, approx, checker);
-	        preciseSize += sizes[0];
-	        approxSize  += sizes[1];
-	    }
+        List<? extends Element> members =
+            ((TypeElement)typeutils.asElement(type.getUnderlyingType())).getEnclosedElements();
+
+        for (VariableElement field : ElementFilter.fieldsIn(members)) {
+            AnnotatedTypeMirror fieldType = factory.getAnnotatedType(field);
+            int[] sizes = typeSizes(fieldType, approx, checker);
+            preciseSize += sizes[0];
+            approxSize  += sizes[1];
+        }
 
 	    preciseSize += POINTER_SIZE; // vtable
 
+        /* Enerj-pldi2011.pdf, p.6:
+         * "Some of this data may be placed in a precise line[...]"
+         * Thus, some approximative data is placed on a precise line.
+         */
 	    int wastedApprox = Math.min(
 	    	LINE_SIZE - (preciseSize % LINE_SIZE), // remainder of last precise line
 	    	approxSize // all the approximate data
@@ -409,7 +653,15 @@ public class PrecisionChecker extends InstrumentingChecker {
 	    if (wastedApprox != 0 || approxSize != 0) {
 	    	System.out.println(preciseSize + " " + approxSize + "; " + wastedApprox);
 	    }
-
 	    return new int[]{preciseSize, approxSize};
 	}
+    
+    /**
+     * Maps class name -> Set of underlying members and their notations
+     */
+    public static Map<String, Map<String, FieldInfoContainer>> classMap =
+        new HashMap<String, Map<String, FieldInfoContainer>>();
+    // (This could maybe have be done with a simple set, but I may be find a
+    // less nasty way of gatherign this data in the future - this map may become
+    // handy if so
 }
