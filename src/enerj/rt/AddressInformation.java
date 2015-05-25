@@ -1,7 +1,9 @@
 package enerj.rt;
 
 /**
- *Information related to specific data blocks and their time of operation
+ * Information related to specific data blocks and their time of operation
+ * TODO #general: merge Approx- with AddressInformation to get rid of 'approx'
+ * field in favor of putting approximation bit in address instead.
  */
 class AddressInformation extends ApproximationInformation {
     
@@ -14,6 +16,21 @@ class AddressInformation extends ApproximationInformation {
      * Last time seen in SRAM
      */
     private long timeStamp;
+
+    /**
+     * May be an array- or some class object
+     */
+    private Object obj = null;
+
+    /**
+     * If obj is a class object, field name is != null
+     */
+    private String fieldname = null;
+
+    /**
+     * If obj is an array, index != null
+     */
+    private Integer index = null;
 
     AddressInformation(long t, boolean approx, boolean heap, int preciseSize,
                int approxSize, long address) {
@@ -47,5 +64,34 @@ class AddressInformation extends ApproximationInformation {
      */
     public long readTimeStamp() {
         return this.timeStamp;
+    }
+
+    /**
+     * Save the array object + the index to the array value
+     * @param obj The array object
+     * @param index Index in the array
+     */
+    public void setType(Object obj, int index) {
+        this.obj = obj;
+        this.index = index;
+    }
+
+    /**
+     * Save the class object + the name of the field
+     * @param obj The array object
+     * @param fieldname Name of the field in the class
+     */
+    public void setType(Object obj, String fieldname) {
+        this.obj = obj;
+        this.fieldname = fieldname;
+    }
+
+    /**
+     * Get object together with field name OR index, depending on the type
+     */
+    public Object[] getObjectAndSpecification() {
+        return fieldname == null
+            ? new Object[]{obj, index}
+            : new Object[]{obj, fieldname};
     }
 }
