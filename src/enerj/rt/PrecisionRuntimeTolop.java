@@ -817,9 +817,9 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 		    int index = ((Integer)objAndSpec[1]).intValue();
 		    T value = (T)Array.get(objAndSpec[0], index);
 		    value = isDynamic
-		    		? introduceErrorsOnValue(value, invProb)
-		    		: introduceErrorsOnValue(value, addressInfo.readTimeStamp(),
-		    				currentTime, invProb);
+                    ? introduceErrorsOnValue(value, addressInfo.readTimeStamp(),
+                            currentTime, invProb)
+		    		: introduceErrorsOnValue(value, invProb);
 		    Array.set(objAndSpec[0], index, value);
 		    addressInfo.updateTimeStamp(currentTime);
 		}
@@ -829,11 +829,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 		    			getDeclaredField((String)objAndSpec[1]);
 		        field.setAccessible(true);
 		        Object value = field.get((Object)objAndSpec[0]);
-		        value = (Object)introduceErrorsOnValue((T)value, invProb);
 		        value = isDynamic
-			    		? (Object)introduceErrorsOnValue((T)value, invProb)
-			    		: (Object)introduceErrorsOnValue((T)value,
-			    				addressInfo.readTimeStamp(), currentTime, invProb);
+                        ? (Object)introduceErrorsOnValue((T)value,
+                                addressInfo.readTimeStamp(), currentTime, invProb)
+			    		: (Object)introduceErrorsOnValue((T)value, invProb);
 			    field.set((Object)objAndSpec[0], value);
 		        addressInfo.updateTimeStamp(currentTime);
 			}
@@ -1856,9 +1855,9 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         String DRAMMod = System.getProperty("DRAMMode", "dynamic").toLowerCase();
         switch (DRAMMod) {
 		case "none":
-			SRAMmode = ErrorModes.NONE;
+			DRAMmode = ErrorModes.NONE;
 		default:
-			SRAMmode = ErrorModes.DYNAMIC; // Any "erroneous" value yields dynamic
+			DRAMmode = ErrorModes.DYNAMIC; // Any "erroneous" value yields dynamic
 			break;
 		}
         
@@ -2552,10 +2551,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         
         // NOISY - part 1
         // Floating point width.
-        if (approx && (nk == NumberKind.DOUBLE || nk == NumberKind.FLOAT)) {
-            lhs = narrowMantissa(lhs, nk);
-            rhs = narrowMantissa(rhs, nk);
-        }
+        // if (approx && (nk == NumberKind.DOUBLE || nk == NumberKind.FLOAT)) {
+        //     lhs = narrowMantissa(lhs, nk);
+        //     rhs = narrowMantissa(rhs, nk);
+        // }
 
         // DEFAULT
         countOperation(nk + opSymbol(op), approx);
@@ -2659,9 +2658,9 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 
         // NOISY, part 2
         // Floating point width again.
-        if (approx && (nk == NumberKind.DOUBLE || nk == NumberKind.FLOAT)) {
-            num = narrowMantissa(num, nk);
-        }
+        // if (approx && (nk == NumberKind.DOUBLE || nk == NumberKind.FLOAT)) {
+        //     num = narrowMantissa(num, nk);
+        // }
 
         // Timing errors on ALU.
         if (approx/* && !(nk == NumberKind.DOUBLE || nk == NumberKind.FLOAT)*/) {
@@ -2769,16 +2768,16 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         T val = loadValue((T) Array.get(array, index), approx, MemKind.ARRAYEL);
 
         //--NOISY: Inject the wanted block
-        if (approx && !evictionOccurred) {
-            AddressInformation ainfo = memorySpace.get(memoryKey(array, index));
-        	T aged = driftRead(val, ainfo.readTimeStamp(), tim);
-            if (aged != val) {
-                val = aged;
+        // if (approx && !evictionOccurred) {
+        //     AddressInformation ainfo = memorySpace.get(memoryKey(array, index));
+        // 	T aged = driftRead(val, ainfo.readTimeStamp(), tim);
+        //     if (aged != val) {
+        //         val = aged;
 
-                Array.set(array, index, aged);
-                ainfo.updateTimeStamp(tim);
-            }
-        }
+        //         Array.set(array, index, aged);
+        //         ainfo.updateTimeStamp(tim);
+        //     }
+        // }
         return val;
     }
 
@@ -2828,33 +2827,33 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         }
 
         // NOISY
-        if (approx && !evictionOccurred) {
-        	AddressInformation ainfo = memorySpace.get(memoryKey(obj, fieldname));
-            T aged = driftRead(val, ainfo.readTimeStamp(), tim); //TODO: fix time stamps
-            if (aged != val) {
-                val = aged;
+        // if (approx && !evictionOccurred) {
+        // 	AddressInformation ainfo = memorySpace.get(memoryKey(obj, fieldname));
+        //     T aged = driftRead(val, ainfo.readTimeStamp(), tim); //TODO: fix time stamps
+        //     if (aged != val) {
+        //         val = aged;
 
-                Class<?> class_;
-                if (obj instanceof Class) {
-                    class_ = (Class<?>) obj;
-                    obj = null;
-                } else {
-                    class_ = obj.getClass();
-                }
-                Field field = getField(class_, fieldname);
-                field.setAccessible(true);
-                try {
-                    field.set(obj, val);
-                    ainfo.updateTimeStamp(tim);
-                } catch (IllegalArgumentException x) {
-                    System.err.println("reflection error!");
-                    return null;
-                } catch (IllegalAccessException x) {
-                    System.err.println("reflection error!");
-                    return null;
-                }
-            }
-        }
+        //         Class<?> class_;
+        //         if (obj instanceof Class) {
+        //             class_ = (Class<?>) obj;
+        //             obj = null;
+        //         } else {
+        //             class_ = obj.getClass();
+        //         }
+        //         Field field = getField(class_, fieldname);
+        //         field.setAccessible(true);
+        //         try {
+        //             field.set(obj, val);
+        //             ainfo.updateTimeStamp(tim);
+        //         } catch (IllegalArgumentException x) {
+        //             System.err.println("reflection error!");
+        //             return null;
+        //         } catch (IllegalAccessException x) {
+        //             System.err.println("reflection error!");
+        //             return null;
+        //         }
+        //     }
+        // }
         return val;
     }
 
@@ -2892,10 +2891,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         boolean evictionOccurred = storeIntoMemory(key, tim);
 
         //--NOISY
-        if (!evictionOccurred) {
-//            memoryRefresh(key, val);
+        // if (!evictionOccurred) {
+            // memoryRefresh(key, val);
         	// TODO #blockerrors: Eventually add error injection here
-        }
+        // }
         return val;
     }
 
@@ -2947,10 +2946,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         // TODO – NullPointerException
         
         //--NOISY
-        if (!evictionOccurred) {
-//            memoryRefresh(key, val);
+        // if (!evictionOccurred) {
+            // memoryRefresh(key, val);
         	// TODO #blockerrors: Eventually add error injection here
-        }
+        // }
 
         return val;
     }
