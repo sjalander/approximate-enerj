@@ -816,24 +816,28 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 		if (isPrimitive(objAndSpec[1])) { // Data is from array index
 		    int index = ((Integer)objAndSpec[1]).intValue();
 		    T value = (T)Array.get(objAndSpec[0], index);
-		    value = isDynamic
+            // System.err.println("loadChangeStore: array - before: " + value); //DEBUG
+            value = isDynamic
                     ? introduceErrorsOnValue(value, addressInfo.readTimeStamp(),
                             currentTime, invProb)
-		    		: introduceErrorsOnValue(value, invProb);
-		    Array.set(objAndSpec[0], index, value);
-		    addressInfo.updateTimeStamp(currentTime);
-		}
-		else { // Data is from class field
-			try {
-		    	Field field = ((Object)objAndSpec[0]).getClass().
-		    			getDeclaredField((String)objAndSpec[1]);
-		        field.setAccessible(true);
-		        Object value = field.get((Object)objAndSpec[0]);
-		        value = isDynamic
+                    : introduceErrorsOnValue(value, invProb);
+            Array.set(objAndSpec[0], index, value);
+            // System.err.println("loadChangeStore: array - after: " + value); //DEBUG
+            addressInfo.updateTimeStamp(currentTime);
+        }
+        else { // Data is from class field
+            try {
+                Field field = ((Object)objAndSpec[0]).getClass().
+                        getDeclaredField((String)objAndSpec[1]);
+                field.setAccessible(true);
+                Object value = field.get((Object)objAndSpec[0]);
+                // System.err.println("loadChangeStore: field - before: " + value); //DEBUG
+                value = isDynamic
                         ? (Object)introduceErrorsOnValue((T)value,
                                 addressInfo.readTimeStamp(), currentTime, invProb)
-			    		: (Object)introduceErrorsOnValue((T)value, invProb);
-			    field.set((Object)objAndSpec[0], value);
+                        : (Object)introduceErrorsOnValue((T)value, invProb);
+                field.set((Object)objAndSpec[0], value);
+                // System.err.println("loadChangeStore: field - after: " + value); //DEBUG
 		        addressInfo.updateTimeStamp(currentTime);
 			}
 			catch (NoSuchFieldException e) {
@@ -862,7 +866,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 	private void chooseErrorModeForCacheLines(TimeTuple currentTimeTuple,
 			long currentTimestamp, AddressInformation currentAinfo,
 			final long currentAddrTag, Long evictedAddressTag,
-			TimeTuple evictedTimeTuple, boolean evictionOccurred) {
+			TimeTuple evictedTimeTuple, Boolean evictionOccurred) {
 
         //--The loaded CL
         if (ALLOW_APPROXIMATE && currentAinfo.approx) {
@@ -920,7 +924,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     	long sramTime = 0;
         Long evictedAddressTag = (long)0;
         TimeTuple evictedTimeTuple = null;
-        boolean evictionOccurred = true;
+        Boolean evictionOccurred = true;
         //--Early in program execution – nothing to evict yet
         if (indexAssocLine.size() < sramAssociativity) {
             currentTimeTuple.setSramTime(tim);
@@ -2763,7 +2767,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     public <T> T loadArray(Object array, int index, boolean approx) {
         String key = memoryKey(array, index);
         long tim = System.currentTimeMillis();
-        boolean evictionOccurred = loadFromMemory(key, tim);
+        Boolean evictionOccurred = loadFromMemory(key, tim);
         
         T val = loadValue((T) Array.get(array, index), approx, MemKind.ARRAYEL);
 
@@ -2792,7 +2796,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     public <T> T loadField(Object obj, String fieldname, boolean approx) {
         T val;
         long tim = System.currentTimeMillis();
-        boolean evictionOccurred = false;
+        Boolean evictionOccurred = false;
         try {
             // In static context, allow client to call this method with a Class
             // object instead of an instance.
@@ -2888,7 +2892,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         //--Store into simulated memory hierarchy
         String key = memoryKey(array, index);
         long tim = System.currentTimeMillis();
-        boolean evictionOccurred = storeIntoMemory(key, tim);
+        Boolean evictionOccurred = storeIntoMemory(key, tim);
 
         //--NOISY
         // if (!evictionOccurred) {
@@ -2936,14 +2940,16 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             System.out.println("reflection error: illegal access");
             return null;
         }
-        System.err.println("Found field");
+        System.err.println("storeField: Found field"); //DEBUG
 
         //--TOLOP
         //--Store into simulated memory hierarchy
         String key = memoryKey(obj, fieldname);
+        System.err.println("storeField: memoryKey: " + key); //DEBUG
         long tim = System.currentTimeMillis();
-        boolean evictionOccurred = storeIntoMemory(key, tim);
-        // TODO – NullPointerException
+        System.err.println("storeField: tim: " + tim); //DEBUG
+        Boolean evictionOccurred = storeIntoMemory(key, tim); // TODO: by setting all boolean -> Boolean in stash: will this suddenly work!?
+        System.err.println("storeField: evictionOccurred: " + evictionOccurred); //DEBUG
         
         //--NOISY
         // if (!evictionOccurred) {
