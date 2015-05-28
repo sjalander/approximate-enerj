@@ -32,11 +32,14 @@ class AddressInformation extends ApproximationInformation {
      */
     private Integer index = null;
 
+    // Unusable: has to know application start time to set time properly
+    /*
     AddressInformation(long t, boolean approx, boolean heap, int preciseSize,
                int approxSize, long address) {
         this(t, approx, heap, preciseSize, approxSize, address, -1);
     }
-    
+    */
+
     AddressInformation(long t, boolean approx, boolean heap, int preciseSize,
                int approxSize, long address, long timeStamp) {
         super(t, approx, heap, preciseSize, approxSize);

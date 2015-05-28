@@ -19,21 +19,14 @@ public class PrecisionRuntimeRoot {
 								+ runtimeClass
 								+ ") could not be instantiated, using the default instead.");
 				// System.err.println(e);
+				System.out.println("Loading PrecisionRuntimeTolop (anyway)");
 				newimpl = new PrecisionRuntimeTolop();
 			}
 		} else {
+			System.out.println("Loading PrecisionRuntimeTolop");
 			newimpl = new PrecisionRuntimeTolop();
 		}
 		impl = newimpl;
 	}
-	
-	/*
-	static dynCall(Object receiver, String name, Object[] args) {
-		look at precision of receiver, then either call name_PREC or name_APPROX
-	}
-	
-	static initObject(Object o, boolean precision) {
-		get class, iterate through fields, set precision of fields
-	}
-	*/
+
 }
