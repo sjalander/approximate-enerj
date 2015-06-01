@@ -524,82 +524,22 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     }
 
     /**
-     * Introduce dynamic (time dependent) errors on value. 
-     *
-     * @param <T> the generic type
-     * @param value Value to be compromised
-     * @param lastTime Last time the memory block was touched
-     * @param currentTime Current time stamp
-     * @return The (possibly compromised) value
-     */
-//    private  <T> T introduceErrorsOnValue(T value, long lastTime,
-//    		long currentTime) {
-//        return driftRead(value, lastTime, currentTime);
-//    }
-    
-    /**
-     * Introduce static (not time dependent) errors on value.
-     *
-     * @param <T> the generic type
-     * @param value Value to be compromised
-     * @return The (possibly compromised) value
-     */
-//    private  <T> T introduceErrorsOnValue(T value, long invProb) {
-//        return bitError(value, invProb);
-//    }
-    
-    /**
-     * Gets the value from {@link AddressInformation} object.
-     *
-     * @param <T> The (generic) type of the value 
-     * @param ainfo The {@link AddressInformation}
-     * @return The value from references in {@link AddressInformation}
-     */
-    @SuppressWarnings("unchecked")
-	private <T> T getValueFromAddressInfo(AddressInformation ainfo) {
-    	Object[] objAndSpec = ainfo.getObjectAndSpecification();
-    	T value = null;
-    	if (isPrimitive(objAndSpec[1])) { // Array index
-    		int index = ((Integer)objAndSpec[1]).intValue();
-    		value = (T)Array.get(objAndSpec[0], index); // Before
-    	}
-    	else { // Class field
-    		try {
-            	Field field = ((Object)objAndSpec[0]).getClass().
-            			getDeclaredField((String)objAndSpec[1]);
-                field.setAccessible(true);
-                value = (T)field.get((Object)objAndSpec[0]);
-        	}
-        	catch (NoSuchFieldException e) {
-        		System.err.println(String.format("introduceErrorsOnCacheLine:"
-        				+ "No field: %s; could not introduce errors…",
-        					(String)objAndSpec[1]));
-        	}
-        	catch (IllegalAccessException e) {
-        		System.err.println("introduceErrorsOnCacheLine: "
-        				+ "Illegal field access; could not introduce errors…");
-			}
-    	}
-    	return value;
-    }
-    
-    /**
      * Introduce errors on LOADED cache lines. Memory block time stamps are
      * updated with currentTime after operation.
      *
      * @param <T> The (generic) return type
-     * @param currentAddrTag The address (tag)
+     * @param addrTag The address (tag)
      * @param lastTime Last time stamp to calculate from
      * @param currentTime Current time stamp to calculate to
      * @param tim invProb Inverse probability for a bit error to occur
      * @param isDynamic true if a time dependent error model is to be used;
      * false if a static error model is to be used
      */
-    private <T> void introduceErrorsOnCacheLine(long currentAddrTag, long lastTime,
+    private <T> void introduceErrorsOnCacheLine(long addrTag, long lastTime,
                                                 long currentTime, long invProb,
                                                 boolean isDynamic) {
-        // Introduce errors into the read data if approximate, etc
-        ArrayList<String> cacheline = getFromCacheLineTracker(currentAddrTag);
+        //--Introduce errors into the read data if approximate, etc
+        ArrayList<String> cacheline = getFromCacheLineTracker(addrTag);
         AddressInformation addressInformation;
         for (String key : cacheline) {
         	addressInformation = memorySpace.get(key);
@@ -613,87 +553,24 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * updated with currentTime after operation.
      *
      * @param <T> The (generic) return type
-     * @param currentAddrTag The address (tag)
+     * @param addrTag The address (tag)
      * @param currentTime Current time stamp to calculate to
      * @param tim invProb Inverse probability for a bit error to occur
      * @param isDynamic true if a time dependent error model is to be used;
      * false if a static error model is to be used
      */
-    private <T> void introduceErrorsOnCacheLine(long currentAddrTag, long currentTime,
+    private <T> void introduceErrorsOnCacheLine(long addrTag, long currentTime,
     											long invProb, boolean isDynamic) {
-        // Introduce errors into the read data if approximate, etc
-        ArrayList<String> cacheline = getFromCacheLineTracker(currentAddrTag);
+        //--Introduce errors into the read data if approximate, etc
+        ArrayList<String> cacheline = getFromCacheLineTracker(addrTag);
         AddressInformation addressInformation;
         for (String key : cacheline) {
         	addressInformation = memorySpace.get(key);
-            loadChangeStore(addressInformation, addressInformation.getTimeStamp(),
+        	loadChangeStore(addressInformation, addressInformation.getTimeStamp(),
             				currentTime, invProb, isDynamic);
         }
     }
 
-	/**
-	 * Load, then change (based on some probability), then store value.
-	 *
-	 * @param <T> Generic type of value
-	 * @param currentTime Current time stamp
-	 * @param invProb Inverse probability of error injection
-	 * @param isDynamic If true, dynamic probability of error; else static
-	 * @param key The memory key
-	 */
-//	@SuppressWarnings("unchecked")
-//	private <T> void loadChangeStore(long currentTime, long invProb,
-//			AddressInformation addressInfo, boolean isDynamic) {
-//		Object[] objAndSpec = addressInfo.getObjectAndSpecification();
-//		
-//		if (isPrimitive(objAndSpec[1])) { // Data is from array index
-//		    int index = ((Integer)objAndSpec[1]).intValue();
-//		    T value = (T)Array.get(objAndSpec[0], index);
-//          System.err.println("loadChangeStore: array - before: " + value); //DEBUG
-//		    System.err.println(String.format("loadChangeStore: key: %s, time diff: %d", key,
-//		    	currentTime-addressInfo.readTimeStamp())); //DEBUG
-//		    if (currentTime - addressInfo.readTimeStamp() > 2000) {
-//		    	System.err.println(String.format("\tcurrentTime: %d, addressInfo.readTimeStamp()"
-//		    			+ ": %d", currentTime, addressInfo.readTimeStamp()));
-//		    	Exception e = new Exception();
-//		    	e.printStackTrace();
-//		    }
-//		    value = isDynamic
-//                    ? introduceErrorsOnValue(value, addressInfo.getTimeStamp(),
-//                            currentTime, invProb)
-//                    : introduceErrorsOnValue(value, invProb);
-//            Array.set(objAndSpec[0], index, value);
-//            // System.err.println("loadChangeStore: array - after: " + value); //DEBUG
-//            addressInfo.setTimeStamp(currentTime);
-//        }
-//        else { // Data is from class field
-//            try {
-//                Field field = ((Object)objAndSpec[0]).getClass().
-//                        getDeclaredField((String)objAndSpec[1]);
-//                field.setAccessible(true);
-//                Object value = field.get((Object)objAndSpec[0]);
-//                System.err.println("loadChangeStore: field - before: " + value); //DEBUG
-//                System.err.println(String.format("loadChangeStore: key: %s, time diff: %d", key,
-//    		    		currentTime-addressInfo.readTimeStamp())); //DEBUG
-//                value = isDynamic
-//                        ? (Object)introduceErrorsOnValue((T)value,
-//                                addressInfo.getTimeStamp(), currentTime, invProb)
-//                        : (Object)introduceErrorsOnValue((T)value, invProb);
-//                field.set((Object)objAndSpec[0], value);
-//                System.err.println("loadChangeStore: field - after: " + value); //DEBUG
-//		        addressInfo.setTimeStamp(currentTime);
-//			}
-//			catch (NoSuchFieldException e) {
-//				System.err.println(String.format("introduceErrorsOnCacheLine:"
-//						+ "No field: %s; could not introduce errors…",
-//							(String)objAndSpec[1]));
-//			}
-//			catch (IllegalAccessException e) {
-//				System.err.println("introduceErrorsOnCacheLine: "
-//						+ "Illegal field access; could not introduce errors…");
-//			}
-//		}
-//	}
-	
 	/**
 	 * Load, then change (based on some probability), then store value.
 	 * @param lastTime Last relative time stamp to calculate from
@@ -708,9 +585,9 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 									 long currentTime, long invProb,
 									 boolean isDynamic) {
 		Object[] objAndSpec = addressInfo.getObjectAndSpecification();
-		
+
 		if (isPrimitive(objAndSpec[1])) { // Data is from array index
-		    int index = ((Integer)objAndSpec[1]).intValue();
+			int index = ((Integer)objAndSpec[1]).intValue();
 		    T value = (T)Array.get(objAndSpec[0], index);
 		    value = isDynamic
                     ? driftRead(value, lastTime, currentTime) // invProb is always the same for dynamic
@@ -780,7 +657,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                 //--Inject with dynamic read errors at SRAM
             	//--Note: no lastTime sent, as time is computed from respective
             	//--time stamps
-                introduceErrorsOnCacheLine(currentAddrTag,
+                introduceErrorsOnCacheLine(evictedAddressTag,
                 		currentTimestamp, INVPROB_DRAM_FLIP_PER_SECOND, true);
                 break;
             case STATIC:
@@ -1281,7 +1158,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * @param field Field name 
      * @return Key string  
      */
-    protected String memoryKey(Object obj, String field) {
+    private String memoryKey(Object obj, String field) {
         String identifier = Integer.toString(System.identityHashCode(obj));
         if (obj == null) {
             if (debug)
@@ -1658,18 +1535,22 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                         // should be placed in the precise memory area should
                         // have been determined earlier. 
                         boolean approx = fic.annotation == AnnotationType.Approx; // Checking for Context is meaningless
-                        long mem = allocateMemoryAux(fic.fieldType, approx);
+                        long address = allocateMemoryAux(fic.fieldType, approx);
                         long tim = System.currentTimeMillis();
-                        int preciseSize=0, approxSize=0, fieldSize = numQytes(fic.fieldType, approx);
+                        int preciseSize = 0, approxSize = 0, fieldSize = numQytes(fic.fieldType, approx);
                         if (approx)
                             approxSize = fieldSize;
                         else
                             preciseSize = fieldSize;
-                        AddressInformation ainfo =
+                        AddressInformation addressInfo =
                                 new AddressInformation(tim, approx, true, preciseSize,
-                                        approxSize, mem, startup-1); // -1: Trick to force oldest possible time stamp
+                                        approxSize, address, startup-1); // -1: Trick to force oldest possible time stamp
+                        // TODO #bug: How to set static objects?
                         String key = STATIC_STRING + keyField; // Workaround…
-                        memorySpace.put(key, ainfo);
+                        if (address == 48)
+                        	System.err.println("memory 48: " + key); //DEBUG
+                        memorySpace.put(key, addressInfo);
+                        addToCachelineTracker(approx ? address | approxMask : address, key);
                     }
                 }
                 classInfo.put(keyClass, fieldsInfo);
@@ -2711,21 +2592,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     public <T> T loadArray(Object array, int index, boolean approx) {
         String key = memoryKey(array, index);
         long tim = System.currentTimeMillis();
-        Boolean evictionOccurred = loadFromMemory(key, tim);
+        loadFromMemory(key, tim);
         
         T val = loadValue((T) Array.get(array, index), approx, MemKind.ARRAYEL);
 
-        //--NOISY: Inject the wanted block
-        // if (approx && !evictionOccurred) {
-        //     AddressInformation ainfo = memorySpace.get(memoryKey(array, index));
-        // 	T aged = driftRead(val, ainfo.readTimeStamp(), tim);
-        //     if (aged != val) {
-        //         val = aged;
-
-        //         Array.set(array, index, aged);
-        //         ainfo.updateTimeStamp(tim);
-        //     }
-        // }
         return val;
     }
 
