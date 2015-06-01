@@ -8,27 +8,27 @@ package enerj.rt;
 class AddressInformation extends ApproximationInformation {
     
     /**
-     * Address in simulated address space
+     * Address in simulated address space.
      */
-    public long address;
+    private final long address;
     
     /**
-     * Last time seen in SRAM
+     * Last time seen in SRAM.
      */
     private long timeStamp;
 
     /**
-     * May be an array- or some class object
+     * May be an array- or some class object.
      */
     private Object obj = null;
 
     /**
-     * If obj is a class object, field name is != null
+     * If obj is a class object, field name is != null.
      */
     private String fieldname = null;
 
     /**
-     * If obj is an array, index != null
+     * If obj is an array, index != null.
      */
     private Integer index = null;
 
@@ -48,29 +48,29 @@ class AddressInformation extends ApproximationInformation {
     }
     
     /**
-     * Update time of usage
+     * Update time of usage to current time.
      */
-    public void updateTimeStamp() {
+    public void setTimeStamp() {
          this.timeStamp = System.currentTimeMillis();
     }
     
     /**
-     * Update time of usage
+     * Update time of usage to given time.
      * @param newTimeStamp New custom time stamp
      */
-    public void updateTimeStamp(long timeStamp) {
+    public void setTimeStamp(long timeStamp) {
          this.timeStamp = timeStamp;
     }
     
     /**
-     * Read time stamp
+     * Read time stamp.
      */
-    public long readTimeStamp() {
+    public long getTimeStamp() {
         return this.timeStamp;
     }
 
     /**
-     * Save the array object + the index to the array value
+     * Save the array object + the index to the array value.
      * @param obj The array object
      * @param index Index in the array
      */
@@ -80,7 +80,7 @@ class AddressInformation extends ApproximationInformation {
     }
 
     /**
-     * Save the class object + the name of the field
+     * Save the class object + the name of the field.
      * @param obj The array object
      * @param fieldname Name of the field in the class
      */
@@ -90,11 +90,19 @@ class AddressInformation extends ApproximationInformation {
     }
 
     /**
-     * Get object together with field name OR index, depending on the type
+     * Get object together with field name OR index, depending on the type.
      */
     public Object[] getObjectAndSpecification() {
         return fieldname == null
             ? new Object[]{obj, index}
             : new Object[]{obj, fieldname};
     }
+
+    /**
+     * Get the address
+     * @return The address
+     */
+	public final long getAddress() {
+		return address;
+	}
 }
