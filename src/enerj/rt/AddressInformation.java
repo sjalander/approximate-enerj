@@ -1,5 +1,7 @@
 package enerj.rt;
 
+import java.lang.ref.WeakReference;
+
 /**
  * Information related to specific data blocks and their time of operation
  * TODO #general: merge Approx- with AddressInformation to get rid of 'approx'
@@ -17,10 +19,12 @@ class AddressInformation extends ApproximationInformation {
      */
     private long timeStamp;
 
+    // If weird NullPointerException exceptions turn up, switch to Object.
     /**
      * May be an array- or some class object.
      */
-    private Object obj = null;
+    private WeakReference<Object> obj = null;
+    //private Object obj = null;
 
     /**
      * If obj is a class object, field name is != null.
@@ -32,14 +36,63 @@ class AddressInformation extends ApproximationInformation {
      */
     private Integer index = null;
 
-    // Unusable: has to know application start time to set time properly
-    /*
-    AddressInformation(long t, boolean approx, boolean heap, int preciseSize,
-               int approxSize, long address) {
-        this(t, approx, heap, preciseSize, approxSize, address, -1);
-    }
-    */
+    /************************ States for PCM modelling ************************/
+    /**
+     * Bit string for tracking which bits that have been flipped before; used
+     * for PCM modelling.
+     */
+    private int flipped = 0;
 
+    /**
+     * Whether or not this memory block has experienced bit flips before; used
+     * for PCM modelling.
+     * @param pos Position in bit string to check
+     */
+    public boolean isFlipped(int pos) { 
+        return ((flipped >> pos) & 1) != 0;
+    }
+
+    /**
+     * Set new flip status; used for PCM modelling.
+     * @param flipped New flip status; true for previous bit flip, false for
+     * none.
+     * @param pos Position in bit string to set
+     */
+    public void setFlipped(boolean flipped, int pos) { 
+        if (flipped)
+            this.flipped |= 1 << pos;
+        else
+            this.flipped &= ~(1 << pos);
+    }
+
+    /**
+     * If no bit flips has occurred before, set bit flip status to true; used
+     * for PCM modelling.
+     */
+    public void setFlipped(int pos) {
+        if (!isFlipped(pos))
+            setFlipped(true, pos);
+    }
+
+    /**
+     * Clear the flip bit tracker; this is done on cache line evictions/loads,
+     * as this infers that data is written to another set of cells.
+     */
+    public void clearFlipped() {
+        flipped = 0;
+    }
+
+    /**
+     * See flip tracker bit string; for debugging purposes.
+     */
+    public int getFlippedBitString() {
+        return flipped;
+    }
+    /**************************************************************************/
+
+    /**
+     * Sets all given states.
+     */
     AddressInformation(long t, boolean approx, boolean heap, int preciseSize,
                int approxSize, long address, long timeStamp) {
         super(t, approx, heap, preciseSize, approxSize);
@@ -69,33 +122,40 @@ class AddressInformation extends ApproximationInformation {
         return this.timeStamp;
     }
 
+    // If weird NullPointerException exceptions turn up, switch to Object.
     /**
      * Save the array object + the index to the array value.
      * @param obj The array object
      * @param index Index in the array
      */
     public void setType(Object obj, int index) {
-        this.obj = obj;
+        //this.obj = obj;
+        this.obj = new WeakReference(obj);
         this.index = index;
     }
 
+    // If weird NullPointerException exceptions turn up, switch to Object.
     /**
      * Save the class object + the name of the field.
      * @param obj The array object
      * @param fieldname Name of the field in the class
      */
     public void setType(Object obj, String fieldname) {
-        this.obj = obj;
+        //this.obj = obj;
+        this.obj = new WeakReference(obj);
         this.fieldname = fieldname;
     }
 
+    // If weird NullPointerException exceptions turn up, switch to Object.
     /**
      * Get object together with field name OR index, depending on the type.
      */
     public Object[] getObjectAndSpecification() {
         return fieldname == null
-            ? new Object[]{obj, index}
-            : new Object[]{obj, fieldname};
+            //? new Object[]{obj, index}
+            //: new Object[]{obj, fieldname};
+            ? new Object[]{obj.get(), index}
+            : new Object[]{obj.get(), fieldname};
     }
 
     /**

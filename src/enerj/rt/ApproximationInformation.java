@@ -50,4 +50,8 @@ class ApproximationInformation {
         this.preciseSize = preciseSize;
         this.approxSize = approxSize;
     }
+
+    public int getSize() {
+        return this.approx ? approxSize : preciseSize;
+    }
 }
