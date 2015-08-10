@@ -1,0 +1,12 @@
+
+Author: Gustaf Borgström
+Date: 2015-08-10
+Place: Uppsala
+--
+This is the final implementation of EnerJ for the TOLOP project, a master
+thesis by Gustaf Borgström, Uppsala University, 2015. The purpose of these
+files are to merge all relevant clases together in order to build a correct
+memory hierarchy and corresponding error models. Any other found
+implementations should not be regarded for others than archiving purposes:
+this is the code used for the simulations used in the final report.
+
