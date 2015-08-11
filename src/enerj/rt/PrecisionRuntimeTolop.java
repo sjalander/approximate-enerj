@@ -979,6 +979,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 
     /********NOISY VARIABLES AND METHODS********/
 
+    private static final String STATIC_STRING = "static";
+
     protected final String CONSTS_FILE = "enerjnoiseconsts.json";
 
     private enum ErrorModes {
@@ -1012,19 +1014,6 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     
 
     // Error injection helpers.
-
-//    private static int numBytes(Object value) {
-//        if (value instanceof Byte) return 1;
-//        else if (value instanceof Short) return 2;
-//        else if (value instanceof Integer) return 4;
-//        else if (value instanceof Long) return 8;
-//        else if (value instanceof Float) return 4;
-//        else if (value instanceof Double) return 8;
-//        else if (value instanceof Character) return 2;
-//        else if (value instanceof Boolean) return 1;
-//        else assert false;
-//        return 0;
-//    }
 
     private long toBits(Object value) {
         if (value instanceof Byte || value instanceof Short ||
@@ -1152,45 +1141,6 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     }
 
     /**
-     * Narrow down the number of bits representing the mantissa of some
-     * (floating point) number. 
-     * @param num The number
-     * @param nk The number kind
-     * @return The narrowed number
-     */
-    private Number narrowMantissa(Number num, NumberKind nk) {
-        if (nk == NumberKind.FLOAT) {
-
-            if (MB_FLOAT_APPROX == DISABLED)
-                return num;
-
-            int bits = Float.floatToRawIntBits(num.floatValue());
-            int mask = 0;
-            for (int i = 0; i < MB_FLOAT_PRECISE - MB_FLOAT_APPROX; ++i) {
-                mask |= (1 << i);
-            }
-            return Float.intBitsToFloat(bits & ~mask);
-
-        } else if (nk == NumberKind.DOUBLE) {
-
-            if (MB_DOUBLE_APPROX == DISABLED)
-                return num;
-
-            long bits = Double.doubleToRawLongBits(num.doubleValue());
-            long mask = 0;
-            for (int i = 0; i < MB_DOUBLE_PRECISE - MB_DOUBLE_APPROX; ++i) {
-                mask |= (1L << i);
-            }
-            return Double.longBitsToDouble(bits & ~mask);
-            // bits 51 and down
-
-        } else {
-            assert false;
-            return null;
-        }
-    }
-
-    /**
      * Check whether some object represents a primitive type, i.e. a number,
      * a boolean or a character
      * @param o The object to be checked
@@ -1204,15 +1154,6 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             o instanceof Character
         );
     }
-
-    /*
-    private void memoryRefresh(String key, Object value) {
-        // NOISY
-        if (isPrimitive(value)) {
-            dataAges.put(key, System.currentTimeMillis());
-        }
-    }
-    */
 
     /**
      * Copied from "original" dramAgedRead
@@ -1266,44 +1207,6 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     }
 
     /**
-     * Introduce errors to some loaded value.
-     * (Will be reomved as soon as the TOLOP implementation is in place instead)
-     * @param key Name of the data to introduce errors into
-     * @param value Current loaded value
-     * @return The value, possibly with injected errors
-     */
-    /*
-    @Deprecated
-    private <T> T dramAgedRead(String key, T value) {
-        if (!isPrimitive(value) || INVPROB_DRAM_FLIP_PER_SECOND == DISABLED) {
-            return value;
-        }
-
-        // How old is the data?
-        long age;
-        if (dataAges.containsKey(key)) {
-            age = System.currentTimeMillis() - dataAges.get(key);
-            if (age == 0) {
-                return value;
-            }
-        } else {
-            return value;
-        }
-
-        // Inject error.
-        long invprob = INVPROB_DRAM_FLIP_PER_SECOND * 1000L / age;
-        value = bitError(value, invprob);
-
-        // Data is refreshed.
-        memoryRefresh(key, value);
-
-        return value;
-    }
-    */
-
-    private static final String STATIC_STRING = "static";
-
-    /**
      * Create keys for memory accesses of fields = object hashcode + some loaded
      * field.
      * @param obj Object to be touched in memory
@@ -1351,45 +1254,6 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     private String memoryKey(Object array, int index) {
         return "array" + System.identityHashCode(array) + "idx" + index;
-    }
-
-    private Number timingError(Number num) {
-        long bits;
-        if (Math.random()*100 < TIMING_ERROR_PROB_PERCENT) {
-            switch (TIMING_ERROR_MODE) {
-            // case DISABLED:
-            case 0:
-                return num;
-
-            case 1: // Single bit flip.
-                bits = toBits(num);
-                int errpos = (int)(Math.random() * numQytes(num) * 8);
-                bits = bits ^ (1 << errpos);
-                return (Number)fromBits(bits, num);
-
-            case 2: // Random value.
-                bits = 0;
-                for (int i = 0; i < numQytes(num); ++i) {
-                    byte b = (byte)(Math.random() * Byte.MAX_VALUE);
-                    bits |= ((long)b) << (i*8);
-                    if (Math.random() < 0.5)
-                        bits |= 1L << ((i+1)*8-1); // Sign bit.
-                }
-                return (Number)fromBits(bits, num);
-
-            case 3: // Last value.
-                if (lastValues.containsKey(num.getClass()))
-                    return lastValues.get(num.getClass());
-                else
-                    return (Number)fromBits(0, num);
-
-            default:
-                assert false;
-                return null;
-            }
-        } else {
-            return num;
-        }
     }
 
     /**
