@@ -2709,7 +2709,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public <T> T loadLocal(Reference<T> ref, boolean approx) {
-        memOpInfo.increaseLocalLoads(approx);
+        memOpInfo.increaseLocalLoads(ALLOW_APPROXIMATE ? approx : false);
         T val = loadValue(ref.value, approx, MemKind.VARIABLE);
         return val;
     }
@@ -2723,7 +2723,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     @SuppressWarnings("unchecked")
     @Override
     public <T> T loadArray(Object array, int index, boolean approx) {
-        memOpInfo.increaseArrayLoads(approx);
+        memOpInfo.increaseArrayLoads(ALLOW_APPROXIMATE ? approx : false);
         String key = memoryKey(array, index);
         long tim = System.currentTimeMillis();
         loadFromMemory(key, tim);
@@ -2742,7 +2742,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     @SuppressWarnings("unchecked")
     @Override
     public <T> T loadField(Object obj, String fieldname, boolean approx) {
-        memOpInfo.increaseFieldLoads(approx);
+        memOpInfo.increaseFieldLoads(ALLOW_APPROXIMATE ? approx : false);
         T val;
         long tim = System.currentTimeMillis();
         Boolean evictionOccurred = false;
@@ -2790,7 +2790,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     @Override
     public <T> T storeLocal(Reference<T> ref, boolean approx, T rhs) {
     	// TODO #general: If static – allow local errors after all?
-        memOpInfo.increaseLocalStores(approx);
+        memOpInfo.increaseLocalStores(ALLOW_APPROXIMATE ? approx : false);
         ref.value = storeValue(rhs, approx, MemKind.VARIABLE);
         return ref.value;
     }
@@ -2805,7 +2805,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public <T> T storeArray(Object array, int index, boolean approx, T rhs) {
-        memOpInfo.increaseArrayStores(approx);
+        memOpInfo.increaseArrayStores(ALLOW_APPROXIMATE ? approx : false);
         T val = storeValue(rhs, approx, MemKind.ARRAYEL);
         Array.set(array, index, val);
 
@@ -2832,7 +2832,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                             boolean approx,
                             T rhs) {
         // T val = storeValue(rhs, approx, MemKind.FIELD);
-        memOpInfo.increaseFieldStores(approx);
+        memOpInfo.increaseFieldStores(ALLOW_APPROXIMATE ? approx : false);
         Field field;
         try {
             // In static context, allow client to call this method with a Class
