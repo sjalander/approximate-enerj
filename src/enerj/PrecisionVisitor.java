@@ -24,13 +24,21 @@ public class PrecisionVisitor extends BaseTypeVisitor<PrecisionChecker> {
     protected class ApproximabilityValidator extends BaseTypeVisitor<PrecisionChecker>.TypeValidator {
         @Override
         public Void visitDeclared(AnnotatedDeclaredType type, Tree node) {
-        	// Is the class not approximatable but has an @Approx annotation?
-        	if ((type.hasEffectiveAnnotation(checker.APPROX) ||
-        	        type.hasEffectiveAnnotation(checker.CONTEXT)) &&
-        	        !PrecisionChecker.isApproximable(type.getUnderlyingType())) {
-        	    checker.report(Result.failure("type.invalid.unapproximable",
-        	                                  type.getUnderlyingType().toString()), node);
-        	}
+	    // Until the implementation is runnable yet, terminate any tries of ApproxN usage
+	    if (type.hasEffectiveAnnotation(checker.APPROX0)  ||
+		type.hasEffectiveAnnotation(checker.APPROX8)  ||
+                type.hasEffectiveAnnotation(checker.APPROX16) ||
+                type.hasEffectiveAnnotation(checker.APPROX24)) {
+                checker.report(Result.failure("approxn.not.implemented",
+                                              type.getUnderlyingType().toString()), node);
+            }
+            // Is the class not approximatable but has an @Approx annotation?
+	    else if ((type.hasEffectiveAnnotation(checker.APPROX) ||
+		      type.hasEffectiveAnnotation(checker.CONTEXT)) &&
+		     !PrecisionChecker.isApproximable(type.getUnderlyingType())) {
+		checker.report(Result.failure("type.invalid.unapproximable",
+					      type.getUnderlyingType().toString()), node);
+	    }
 
             return super.visitDeclared(type, node);
         }

@@ -84,6 +84,7 @@ public class SimulationTranslator extends PrecisionReferencingTranslator {
     @Override
     public void visitBinary(JCTree.JCBinary tree) {
         boolean approximate = isApprox(tree);
+	int approximativeBits = approximativeBits(tree);
         super.visitBinary(tree);
 
         // Avoid instrumenting string concatenation.
@@ -144,7 +145,8 @@ public class SimulationTranslator extends PrecisionReferencingTranslator {
                 makeNumeric(tree.rhs),
                 dotsExp(opVal),
                 numKindExp(tree.type),
-                boolExp(approximate)
+                boolExp(approximate),
+                maker.Literal(approximativeBits)
             ));
         JCTree.JCExpression expr = unbox(call, tree.type);
 
@@ -574,7 +576,8 @@ public class SimulationTranslator extends PrecisionReferencingTranslator {
                 rhs,
                 boolExp(returnOld),
                 numKindExp(oldArg.type),
-                boolExp(isApprox(oldArg))
+                boolExp(isApprox(oldArg)),
+                maker.Literal(approximativeBits(oldArg))
               )
             );
             attribute(call, repl);
@@ -594,7 +597,8 @@ public class SimulationTranslator extends PrecisionReferencingTranslator {
                 rhs,
                 boolExp(returnOld),
                 numKindExp(oldArg.type),
-                boolExp(isApprox(oldArg))
+                boolExp(isApprox(oldArg)),
+                maker.Literal(approximativeBits(oldArg))
               )
             );
             attribute(call, repl);
@@ -629,7 +633,8 @@ public class SimulationTranslator extends PrecisionReferencingTranslator {
                 rhs,
                 boolExp(returnOld),
                 numKindExp(oldArg.type),
-                boolExp(isApprox(oldArg))
+                boolExp(isApprox(oldArg)),
+                maker.Literal(approximativeBits(oldArg))
               )
             );
             attribute(call, repl);

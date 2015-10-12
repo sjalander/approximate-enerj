@@ -35,6 +35,13 @@ class ApproximationInformation {
     public int approxSize;
 
     /**
+     *  If partial approximation is used, this is the number of total bits being
+     *  approximative. E.g. @Approx8.
+     *  If partialApprox == 0, then the whole (primitive) type is approximative.
+     */
+    public int approximativeBits = 0;
+
+    /**
      * To save a bit of space, we only store the creation time
      * @param t Time of creation
      * @param approx Whether the created object is approximative or not
@@ -43,12 +50,14 @@ class ApproximationInformation {
      * @param approxSize Size of the approximative object (equal to 0 if precise)
      */
     ApproximationInformation(long t, boolean approx, boolean heap,
-                             int preciseSize, int approxSize) {
+                             int preciseSize, int approxSize,
+                             int approximativeBits) {
         created = t;
         this.approx = approx;
         this.heap = heap;
         this.preciseSize = preciseSize;
         this.approxSize = approxSize;
+        this.approximativeBits = approximativeBits;
     }
 
     public int getSize() {

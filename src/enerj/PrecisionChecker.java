@@ -59,7 +59,7 @@ import enerj.rt.Reference;
 /**
  * The precision type checker.
  */
-@TypeQualifiers({Approx.class, Precise.class, Top.class, Context.class})
+@TypeQualifiers({Approx.class, Approx0.class, Approx8.class, Approx16.class, Approx24.class, Precise.class, Top.class, Context.class})
 @SupportedLintOptions( { PrecisionChecker.STRELAXED,
 	PrecisionChecker.MBSTATIC, PrecisionChecker.MBDYNAMIC,
 	PrecisionChecker.SIMULATION } )
@@ -107,14 +107,18 @@ public class PrecisionChecker extends InstrumentingChecker {
     // File name to save gathered data to
     public static final String JSON_OUTPUT_FILE_NAME = "object_field_info.json";
 
-    public AnnotationMirror APPROX, PRECISE, TOP, CONTEXT;
+    public AnnotationMirror APPROX, APPROX0, APPROX8, APPROX16, APPROX24, PRECISE, TOP, CONTEXT;
 
 
     @Override
     public void initChecker(ProcessingEnvironment env) {
         AnnotationUtils annoFactory = AnnotationUtils.getInstance(env);
-        APPROX = annoFactory.fromClass(Approx.class);
-        PRECISE = annoFactory.fromClass(Precise.class);
+        APPROX   = annoFactory.fromClass(Approx.class);
+        APPROX0  = annoFactory.fromClass(Approx0.class);
+        APPROX8  = annoFactory.fromClass(Approx8.class);
+        APPROX16 = annoFactory.fromClass(Approx16.class);
+        APPROX24 = annoFactory.fromClass(Approx24.class);
+        PRECISE  = annoFactory.fromClass(Precise.class);
         TOP = annoFactory.fromClass(Top.class);
         CONTEXT = annoFactory.fromClass(Context.class);
 
@@ -176,6 +180,10 @@ public class PrecisionChecker extends InstrumentingChecker {
 
         typeQualifiers.add(Precise.class);
         typeQualifiers.add(Approx.class);
+        typeQualifiers.add(Approx0.class);
+	typeQualifiers.add(Approx8.class);
+	typeQualifiers.add(Approx16.class);
+	typeQualifiers.add(Approx24.class);
         typeQualifiers.add(Context.class);
 
         // Always allow Top as top modifier, regardless of subtyping hierarchy
@@ -191,14 +199,24 @@ public class PrecisionChecker extends InstrumentingChecker {
 
         GraphQualifierHierarchy.GraphFactory factory = new GraphQualifierHierarchy.GraphFactory(this);
 
-        AnnotationMirror typeQualifierAnno, superAnno;
+        AnnotationMirror typeQualifierAnno, superAnno, partialApprox;
 
 		if(getLintOption(STRELAXED, STRELAXED_DEFAULT)) {
-			typeQualifierAnno= annoFactory.fromClass(Precise.class);
+			typeQualifierAnno = annoFactory.fromClass(Precise.class);
 			superAnno = annoFactory.fromClass(Approx.class);
 			factory.addSubtype(typeQualifierAnno, superAnno);
 
-			typeQualifierAnno= annoFactory.fromClass(Context.class);
+			// Add new ApproxN types, should be subsets of Approx
+			partialApprox = annoFactory.fromClass(Approx0.class);
+			factory.addSubtype(partialApprox, superAnno);
+			partialApprox = annoFactory.fromClass(Approx8.class);
+			factory.addSubtype(partialApprox, superAnno);
+			partialApprox = annoFactory.fromClass(Approx16.class);
+			factory.addSubtype(partialApprox, superAnno);
+			partialApprox = annoFactory.fromClass(Approx24.class);
+			factory.addSubtype(partialApprox, superAnno);
+
+			typeQualifierAnno = annoFactory.fromClass(Context.class);
 			factory.addSubtype(typeQualifierAnno, superAnno);
 
 			// To allow one annotation for classes like Endorsements, we still
@@ -206,14 +224,22 @@ public class PrecisionChecker extends InstrumentingChecker {
 			typeQualifierAnno= annoFactory.fromClass(Top.class);
 			factory.addSubtype(superAnno, typeQualifierAnno);
 		} else {
-			typeQualifierAnno= annoFactory.fromClass(Precise.class);
+			typeQualifierAnno = annoFactory.fromClass(Precise.class);
 			superAnno = annoFactory.fromClass(Top.class);
 			factory.addSubtype(typeQualifierAnno, superAnno);
 
-			typeQualifierAnno= annoFactory.fromClass(Approx.class);
+			// Add new ApproxN types, should be subsets of Approx
+			partialApprox = annoFactory.fromClass(Approx8.class);
+			factory.addSubtype(partialApprox, superAnno);
+			partialApprox = annoFactory.fromClass(Approx16.class);
+			factory.addSubtype(partialApprox, superAnno);
+			partialApprox = annoFactory.fromClass(Approx24.class);
+			factory.addSubtype(partialApprox, superAnno);
+
+			typeQualifierAnno = annoFactory.fromClass(Approx.class);
 			factory.addSubtype(typeQualifierAnno, superAnno);
 
-			typeQualifierAnno= annoFactory.fromClass(Context.class);
+			typeQualifierAnno = annoFactory.fromClass(Context.class);
 			factory.addSubtype(typeQualifierAnno, superAnno);
 		}
 
@@ -255,11 +281,15 @@ public class PrecisionChecker extends InstrumentingChecker {
     	// option. But it also shouldn't break the relaxed subtyping hierarchy.
     	if( sub.getUnderlyingType().getKind().isPrimitive() &&
     		sup.getUnderlyingType().getKind().isPrimitive() ) {
-    		if ( sup.getAnnotations().contains(APPROX) ||
-    			 sup.getAnnotations().contains(TOP) ||
-    			 (sup.getAnnotations().contains(CONTEXT) &&
-    			  sub.getAnnotations().contains(PRECISE)) ||
-    			 sup.getAnnotations().equals(sub.getAnnotations())){
+    		if ( sup.getAnnotations().contains(APPROX)    ||
+		     sup.getAnnotations().contains(APPROX0)   ||
+		     sup.getAnnotations().contains(APPROX8)   ||
+		     sup.getAnnotations().contains(APPROX16)  ||
+		     sup.getAnnotations().contains(APPROX24)  ||
+		     sup.getAnnotations().contains(TOP)       ||
+		     (sup.getAnnotations().contains(CONTEXT)  &&
+		      sub.getAnnotations().contains(PRECISE)) ||
+		     sup.getAnnotations().equals(sub.getAnnotations())){
     			return true;
     		} else {
     			return false;
@@ -384,7 +414,7 @@ public class PrecisionChecker extends InstrumentingChecker {
      */
 	public static int[] typeSizes(AnnotatedTypeMirror type, boolean apprCtx,
                                   PrecisionChecker checker) {
-        int preciseSize = 0;
+	    int preciseSize = 0;
 	    int approxSize = 0;
 
 	    if (type.getKind() == TypeKind.DECLARED) {
@@ -501,6 +531,22 @@ public class PrecisionChecker extends InstrumentingChecker {
             
             if (fieldType.hasEffectiveAnnotation(checker.APPROX))
                 fic.annotation = AnnotationType.Approx;
+            else if (fieldType.hasEffectiveAnnotation(checker.APPROX0)) {
+                fic.annotation = AnnotationType.Approx0;
+                // System.err.print("@Approx0 "); //DEBUG
+            }
+            else if (fieldType.hasEffectiveAnnotation(checker.APPROX8)) {
+                fic.annotation = AnnotationType.Approx8;
+                // System.err.print("@Approx8 "); //DEBUG
+            }
+            else if (fieldType.hasEffectiveAnnotation(checker.APPROX16)) {
+                fic.annotation = AnnotationType.Approx16;
+                // System.err.print("@Approx16 "); //DEBUG
+            }
+            else if (fieldType.hasEffectiveAnnotation(checker.APPROX24)) {
+                fic.annotation = AnnotationType.Approx24;
+                // System.err.print("@Approx24 "); //DEBUG
+            }
             else if (fieldType.hasEffectiveAnnotation(checker.CONTEXT))
                 fic.annotation = AnnotationType.Context;
             else

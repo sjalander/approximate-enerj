@@ -46,9 +46,9 @@ public class PrecisionAnnotatedTypeFactory extends BasicAnnotatedTypeFactory<Pre
         postInit();
 	}
 
-	/**
-     * The type of "this" is always "context" if its type is approximable. Otherwise it
-     * is precise.
+    /**
+     * The type of "this" is always "context" if its type is
+     * approximable. Otherwise it is precise.
      */
     @Override
     public AnnotatedDeclaredType getSelfType(Tree tree) {
@@ -372,6 +372,22 @@ public class PrecisionAnnotatedTypeFactory extends BasicAnnotatedTypeFactory<Pre
 	    			rhs.getAnnotations().contains(checker.APPROX) ) {
 	    		type.clearAnnotations();
 	    		type.addAnnotation(checker.APPROX);
+	    	} else if ( lhs.getAnnotations().contains(checker.APPROX0) ||
+	    			rhs.getAnnotations().contains(checker.APPROX0) ) {
+	    		type.clearAnnotations();
+	    		type.addAnnotation(checker.APPROX0);
+	    	} else if ( lhs.getAnnotations().contains(checker.APPROX8) ||
+	    			rhs.getAnnotations().contains(checker.APPROX8) ) {
+	    		type.clearAnnotations();
+	    		type.addAnnotation(checker.APPROX8);
+	    	} else if ( lhs.getAnnotations().contains(checker.APPROX16) ||
+	    			rhs.getAnnotations().contains(checker.APPROX16) ) {
+	    		type.clearAnnotations();
+	    		type.addAnnotation(checker.APPROX16);
+	    	} else if ( lhs.getAnnotations().contains(checker.APPROX24) ||
+	    			rhs.getAnnotations().contains(checker.APPROX24) ) {
+	    		type.clearAnnotations();
+	    		type.addAnnotation(checker.APPROX24);
 	    	} else if ( lhs.getAnnotations().contains(checker.CONTEXT) ||
 	    			rhs.getAnnotations().contains(checker.CONTEXT) ) {
 	    		type.clearAnnotations();

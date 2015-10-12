@@ -35,6 +35,30 @@ public class RuntimePrecisionTranslator extends HelpfulTreeTranslator<PrecisionC
         super(checker, env, p);
     }
 
+    /**
+     * Return number of bits being approximate according to annotation class.
+     * @param type The type whose annotation to be checked for
+     * @return Number of bits being approximative; if no annotation class
+     * matches, 0 is returned
+     */
+    private int mapApproxClassToInteger(AnnotatedTypeMirror type) {
+        int retVal = 0;
+        if (type.hasEffectiveAnnotation(checker.APPROX0))
+            return 0;
+        else if (type.hasEffectiveAnnotation(checker.APPROX8))
+            return 8;
+        else if (type.hasEffectiveAnnotation(checker.APPROX16))
+            return 16;
+        else if (type.hasEffectiveAnnotation(checker.APPROX24))
+            return 24;
+
+        if (retVal != 0) // DEBUG
+            System.err.println(retVal);
+        
+        return retVal;
+    }
+
+
     @Override
     public void visitNewClass(JCNewClass tree) {
     	super.visitNewClass(tree);
@@ -86,7 +110,11 @@ public class RuntimePrecisionTranslator extends HelpfulTreeTranslator<PrecisionC
     	JCTree.JCExpression beforeMeth = dotsExp("enerj.rt.PrecisionRuntimeRoot.impl.beforeCreation");
         AnnotatedTypeMirror type = atypeFactory.getAnnotatedType(tree);
     	JCExpression isApprox;
-        if ( type.hasEffectiveAnnotation(checker.APPROX) ) {
+        if ( type.hasEffectiveAnnotation(checker.APPROX)   || 
+             type.hasEffectiveAnnotation(checker.APPROX0)  ||
+             type.hasEffectiveAnnotation(checker.APPROX8)  ||
+             type.hasEffectiveAnnotation(checker.APPROX16) ||
+             type.hasEffectiveAnnotation(checker.APPROX24)) {
         	isApprox = maker.Literal(TypeTags.BOOLEAN, 1);
         } else if ( type.hasEffectiveAnnotation(checker.CONTEXT) ) {
         	JCTree.JCExpression curIsApproxMeth = dotsExp("enerj.rt.PrecisionRuntimeRoot.impl.isApproximate");
@@ -101,16 +129,23 @@ public class RuntimePrecisionTranslator extends HelpfulTreeTranslator<PrecisionC
     	JCTree.JCExpression preciseSizeExp = maker.Literal(sizes[0]);
     	JCTree.JCExpression approxSizeExp  = maker.Literal(sizes[1]);
 
+        // (TOLOP) Get number of approximative bits
+        int approximativeBits = mapApproxClassToInteger(type);
+        JCTree.JCExpression approximativeBitsExp =
+            maker.Literal(approximativeBits);
+
     	List<JCExpression> beforeArgs;
     	if (envIsStatic) {
         	JCTree.JCExpression curThreadMeth = dotsExp("Thread.currentThread");
         	JCTree.JCMethodInvocation curThreadCall = maker.Apply(null, curThreadMeth, List.<JCExpression>nil());
 
     		beforeArgs = List.of(curThreadCall, isApprox,
-    		                     preciseSizeExp, approxSizeExp);
+    		                     preciseSizeExp, approxSizeExp,
+				     approximativeBitsExp);
     	} else {
     		beforeArgs = List.of(thisExp(), isApprox,
-    		                     preciseSizeExp, approxSizeExp);
+    		                     preciseSizeExp, approxSizeExp,
+				     approximativeBitsExp);
 
     	}
 
@@ -204,7 +239,11 @@ public class RuntimePrecisionTranslator extends HelpfulTreeTranslator<PrecisionC
         );
 
         JCTree.JCExpression isApprox;
-        if ( elType.hasEffectiveAnnotation(checker.APPROX) ) {
+        if ( elType.hasEffectiveAnnotation(checker.APPROX)   ||
+             elType.hasEffectiveAnnotation(checker.APPROX0)  ||
+             elType.hasEffectiveAnnotation(checker.APPROX8)  ||
+             elType.hasEffectiveAnnotation(checker.APPROX16) ||
+             elType.hasEffectiveAnnotation(checker.APPROX24)) {
         	isApprox = boolExp(true);
         } else if ( elType.hasEffectiveAnnotation(checker.CONTEXT) ) {
         	isApprox = maker.Apply(null,
@@ -215,16 +254,22 @@ public class RuntimePrecisionTranslator extends HelpfulTreeTranslator<PrecisionC
         	isApprox = boolExp(false);
         }
 
+        int approximativeBits = mapApproxClassToInteger(elType);
+        JCTree.JCExpression approximativeBitsExp = maker.Literal(approximativeBits);
+
+        List<JCExpression> newArrayArgs = List.of(
+						  tree,
+						  maker.Literal(tree.dims.length()),
+						  isApprox,
+						  maker.Literal(sizes[0]),
+						  maker.Literal(sizes[1]),
+						  approximativeBitsExp
+						  );
+
     	JCTree.JCExpression call = maker.Apply(null,
-    	    dotsExp("enerj.rt.PrecisionRuntimeRoot.impl.newArray"),
-    	    List.of(
-    	        tree,
-    	        maker.Literal(tree.dims.length()),
-    	        isApprox,
-    	        maker.Literal(sizes[0]),
-    	        maker.Literal(sizes[1])
-    	    )
-    	);
+					       dotsExp("enerj.rt.PrecisionRuntimeRoot.impl.newArray"),
+					       newArrayArgs
+					       );
     	attribute(call, tree);
     	result = call;
     }

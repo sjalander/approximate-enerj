@@ -30,6 +30,10 @@ import com.sun.tools.javac.util.Name;
 
 import enerj.PrecisionChecker;
 import enerj.lang.Approx;
+import enerj.lang.Approx0;
+import enerj.lang.Approx8;
+import enerj.lang.Approx16;
+import enerj.lang.Approx24;
 
 
 // Performs (static or dynamic) method binding depending on the precision of the
@@ -58,7 +62,11 @@ public class MethodBindingTranslator extends HelpfulTreeTranslator<PrecisionChec
 			boolean prevCtxApprox = ctxApprox;
 
 			// check whether the lhs is approximate
-			if (lhs.hasAnnotation(Approx.class)) {
+			if (lhs.hasAnnotation(Approx.class)   ||
+			    lhs.hasAnnotation(Approx0.class)  ||
+			    lhs.hasAnnotation(Approx8.class)  ||
+			    lhs.hasAnnotation(Approx16.class) ||
+			    lhs.hasAnnotation(Approx24.class)) {
 				ctxApprox = true;
 			}
 
@@ -87,7 +95,11 @@ public class MethodBindingTranslator extends HelpfulTreeTranslator<PrecisionChec
 		boolean prevCtxApprox = ctxApprox;
 
 		// check whether the lhs is approximate
-		if (lhs.hasAnnotation(Approx.class)) {
+		if (lhs.hasAnnotation(Approx.class)   ||
+		    lhs.hasAnnotation(Approx0.class)  ||
+		    lhs.hasAnnotation(Approx8.class)  ||
+		    lhs.hasAnnotation(Approx16.class) ||
+		    lhs.hasAnnotation(Approx24.class)) {
 			ctxApprox = true;
 		}
 
@@ -124,8 +136,12 @@ public class MethodBindingTranslator extends HelpfulTreeTranslator<PrecisionChec
     		mst.selected = translate(mst.selected);
     		AnnotatedTypeMirror recv = atypeFactory.getAnnotatedType(mst.selected);
 
-			if (recv.hasAnnotation(Approx.class) ||
-				ctxApprox) {
+			if (recv.hasAnnotation(Approx.class)   ||
+			    recv.hasAnnotation(Approx0.class)  ||
+			    recv.hasAnnotation(Approx8.class)  ||
+			    recv.hasAnnotation(Approx16.class) ||
+			    recv.hasAnnotation(Approx24.class) ||
+			    ctxApprox) {
 				TypeMirror precv = recv.getUnderlyingType();
 
 				if (precv instanceof DeclaredType
@@ -200,7 +216,11 @@ public class MethodBindingTranslator extends HelpfulTreeTranslator<PrecisionChec
 					prevCtxApprox = ctxApprox;
 
 					// check whether the lhs is approximate
-					if (ptype.hasAnnotation(Approx.class)) {
+					if (ptype.hasAnnotation(Approx.class)   ||
+					    ptype.hasAnnotation(Approx0.class)  ||
+					    ptype.hasAnnotation(Approx8.class)  ||
+					    ptype.hasAnnotation(Approx16.class) ||
+					    ptype.hasAnnotation(Approx24.class)) {
 						ctxApprox = true;
 					} else {
 						ctxApprox = false;
@@ -348,7 +368,11 @@ public class MethodBindingTranslator extends HelpfulTreeTranslator<PrecisionChec
     public void visitBinary(JCTree.JCBinary tree) {
     	super.visitBinary(tree);
 
-    	if (ctxApprox && !atypeFactory.getAnnotatedType(tree).hasEffectiveAnnotation(checker.APPROX)) {
+    	if (ctxApprox && !atypeFactory.getAnnotatedType(tree).hasEffectiveAnnotation(checker.APPROX) ||
+	    atypeFactory.getAnnotatedType(tree).hasEffectiveAnnotation(checker.APPROX0)  ||
+	    atypeFactory.getAnnotatedType(tree).hasEffectiveAnnotation(checker.APPROX8)  ||
+	    atypeFactory.getAnnotatedType(tree).hasEffectiveAnnotation(checker.APPROX16) ||
+	    atypeFactory.getAnnotatedType(tree).hasEffectiveAnnotation(checker.APPROX24)) {
     		// System.err.println("might have been approximate: " + tree);
     		// A terrible, terrible way to do this:
     		PrecisionReferencingTranslator.approxTrees.add(tree);

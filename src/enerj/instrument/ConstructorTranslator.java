@@ -15,7 +15,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 
 import enerj.PrecisionChecker;
-import enerj.lang.Approx;
+//import enerj.lang.Approx;
 
 public class ConstructorTranslator
         extends HelpfulTreeTranslator<PrecisionChecker> {

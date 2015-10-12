@@ -443,7 +443,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * Credits: http://stackoverflow.com/a/15949458/1283083
      */
     private interface ElementProcessor {    
-        void process(Object e, int index, boolean approx);  
+        void process(Object e, int index, boolean approx, int approximativeBits);
     }
     
     /**
@@ -454,18 +454,19 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * @param approx Whether the array elements are approximate or not 
      */
     private static void addressesToArrayElemsAux(Object o, ElementProcessor p,
-            boolean approx, boolean isValue) {
-        for (int i = 0; i < Array.getLength(o); i++) {
+            boolean approx, boolean isValue, int approximativeBits) {
+        int n = Array.getLength(o);
+        for (int i = 0; i < n; i++) {
             Object e = Array.get(o, i);
             if (e != null && e.getClass().isArray()) {
-                addressesToArrayElemsAux(e, p, approx, isValue);
+                addressesToArrayElemsAux(e, p, approx, isValue, approximativeBits);
                 if (!isValue)
-                    p.process(o, i, approx);
+                    p.process(o, i, approx, approximativeBits);
                 if (debug) {
                 }
             }
             else if (isValue) { // End of array
-                p.process(o, i, approx);
+                p.process(o, i, approx, approximativeBits);
             }
         }
     }
@@ -476,12 +477,12 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * @param approx Whether the array contains approximate values or not 
      */
     private <T> void assignAddressesToArrayItems(T created, boolean approx,
-            boolean isValue) {
-        // ...then, give all values addresses
+						 boolean isValue, int approximativeBits) {
+        // then, give all values addresses
         Object arr = created;
         ElementProcessor p = new ElementProcessor() {
             @Override
-            public void process(Object arr, int index, boolean approx) {
+            public void process(Object arr, int index, boolean approx, int approximativeBits) {
                 long tim = System.currentTimeMillis(); // Time stamp of creation
                 
                 // Compute item size(s)
@@ -508,7 +509,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                 
                 AddressInformation ainfo =
                         new AddressInformation(tim, approx, true, preciseSize,
-                                approxSize, address, startup-1); // -1: Trick to force oldest possible time stamp
+                                approxSize, approximativeBits, address, startup-1); // -1: Trick to force oldest possible time stamp
                 ainfo.setType(arr, index);
                 memorySpace.put(key, ainfo);
                 
@@ -516,7 +517,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                 }
             }
         };
-        addressesToArrayElemsAux(arr, p, approx, isValue);
+        addressesToArrayElemsAux(arr, p, approx, isValue, approximativeBits);
     }
 
     /**
@@ -1008,6 +1009,60 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     protected int TIMING_ERROR_MODE = 2;
     protected float TIMING_ERROR_PROB_PERCENT = 1.5f;
 
+    /* Addition result bitwise error probability */
+    protected final String ADDER_NOISE_FILE = "error_model/quaternary.json";
+    protected int[] ADDITION_ERRORS = new int[32];
+    protected int ADDITION_TOTAL = 0;
+
+    /* Addition result bitwise error probability for 0 quart bits (all binary may still have some errors) */
+    protected final String ADDER_NOISE_FILE_0 = "error_model/binary.json";
+    protected int[] ADDITION_ERRORS_0 = new int[32];
+    protected int ADDITION_TOTAL_0 = 0; //Number of additions done in the simulation
+
+    /* Addition result bitwise error probability  for 8 quart bits */
+    protected final String ADDER_NOISE_FILE_8 = "error_model/quaternary8.json";
+    protected int[] ADDITION_ERRORS_8 = new int[32];
+    protected int ADDITION_TOTAL_8 = 0; //Number of additions done in the simulation
+
+    /* Addition result bitwise error probability  for 16 quart bits */
+    protected final String ADDER_NOISE_FILE_16 = "error_model/quaternary16.json";
+    protected int[] ADDITION_ERRORS_16 = new int[32];
+    protected int ADDITION_TOTAL_16 = 0; //Number of additions done in the simulation
+
+    /* Addition result bitwise error probability  for 24 quart bits */
+    protected final String ADDER_NOISE_FILE_24 = "error_model/quaternary24.json";
+    protected int[] ADDITION_ERRORS_24 = new int[32];
+    protected int ADDITION_TOTAL_24 = 0; //Number of additions done in the simulation
+
+    //The subtraction data is gathered by doing a twos complement simulation 
+    //followed by and addition simulation.
+    /* Twos complement result bitwise error probability for pure quaternary */
+    protected final String TWOCOMP_NOISE_FILE = "error_model/quaternary_sub.json";
+    protected int[] SUBTRACTION_ERRORS = new int[32];
+    protected int TWOCOMP_TOTAL = 0; //Number of Twos complement done in the simulation
+
+    /* Twos complement result bitwise error probability  for 0 quart bits (all binary may still have some errors) */
+    protected final String TWOCOMP_NOISE_FILE_0 = "error_model/binary_sub.json";
+    protected int[] SUBTRACTION_ERRORS_0 = new int[32];
+    protected int TWOCOMP_TOTAL_0 = 0; //Number of Twos complement done in the simulation
+
+    /* Twos complement result bitwise error probability  for 8 quart bits */
+    protected final String TWOCOMP_NOISE_FILE_8 = "error_model/quaternary8_sub.json";
+    protected int[] SUBTRACTION_ERRORS_8 = new int[32];
+    protected int TWOCOMP_TOTAL_8 = 0; //Number of Twos complement done in the simulation
+
+    /* Twos complement result bitwise error probability  for 16 quart bits */
+    protected final String TWOCOMP_NOISE_FILE_16 = "error_model/quaternary16_sub.json";
+    protected int[] SUBTRACTION_ERRORS_16 = new int[32];
+    protected int TWOCOMP_TOTAL_16 = 0; //Number of Twos complement done in the simulation
+
+    /* Twos complement result bitwise error probability  for 24 quart bits */
+    protected final String TWOCOMP_NOISE_FILE_24 = "error_model/quaternary24_sub.json";
+    protected int[] SUBTRACTION_ERRORS_24 = new int[32];
+    protected int TWOCOMP_TOTAL_24 = 0; //Number of Twos complement done in the simulation
+
+
+
     // Indicates that the approximation should not be used;
     protected final int DISABLED;
 
@@ -1330,6 +1385,251 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         System.err.println("\tDRAM decay: " + INVPROB_DRAM_FLIP_PER_SECOND);
         System.err.println("\ttiming error mode: " + TIMING_ERROR_MODE);
         System.err.println("\ttiming error prob: " + TIMING_ERROR_PROB_PERCENT);
+
+        //Loading the addition error data form json file
+        FileReader ar = null;
+        try {
+            ar = new FileReader(ADDER_NOISE_FILE);
+        } catch (IOException exc) {
+            System.err.println("   Adder noise file not found; using defaults.");
+        }
+
+        if (ar != null) {
+            try {
+                JSONObject ajson = new JSONObject(new JSONTokener(ar));
+                ADDITION_TOTAL = ajson.getInt("ADDITION_TOTAL");
+                for(int i = 0; i < 32; i++){
+                    ADDITION_ERRORS[i] = ajson.getInt("BIT" + (i+1));
+                }
+            } catch (JSONException exc) {
+                System.err.println("   Adder_JSON not readable!");
+            }
+        }
+        //Loading the addition_0 error data
+        ar = null;
+        try {
+            ar = new FileReader(ADDER_NOISE_FILE_0);
+        } catch (IOException exc) {
+            System.err.println("   Adder_0 noise file not found; using defaults (0).");
+        }
+
+        if (ar != null) {
+            try {
+                JSONObject ajson = new JSONObject(new JSONTokener(ar));
+                ADDITION_TOTAL_0 = ajson.getInt("ADDITION_TOTAL");
+                for(int i = 0; i < 32; i++){
+                    ADDITION_ERRORS_0[i] = ajson.getInt("BIT" + (i+1));
+                }
+            } catch (JSONException exc) {
+                System.err.println("   Adder_0_JSON not readable!");
+            }
+        }
+
+        //Loading the addition_8 error data
+        ar = null;
+        try {
+            ar = new FileReader(ADDER_NOISE_FILE_8);
+        } catch (IOException exc) {
+            System.err.println("   Adder_8 noise file not found; using defaults (0).");
+	}
+
+        if (ar != null) {
+            try {
+                JSONObject ajson = new JSONObject(new JSONTokener(ar));
+                ADDITION_TOTAL_8 = ajson.getInt("ADDITION_TOTAL");
+                for(int i = 0; i < 32; i++){
+                    ADDITION_ERRORS_8[i] = ajson.getInt("BIT" + (i+1));
+                }
+            } catch (JSONException exc) {
+                System.err.println("   Adder_8_JSON not readable!");
+             }
+         }
+
+        //Loading the addition_16 error data
+        ar = null;
+        try {
+            ar = new FileReader(ADDER_NOISE_FILE_16);
+        } catch (IOException exc) {
+            System.err.println("   Adder_16 noise file not found; using defaults (0).");
+        }
+
+        if (ar != null) {
+            try {
+                JSONObject ajson = new JSONObject(new JSONTokener(ar));
+                ADDITION_TOTAL_16 = ajson.getInt("ADDITION_TOTAL");
+                for(int i = 0; i < 32; i++){
+                    ADDITION_ERRORS_16[i] = ajson.getInt("BIT" + (i+1));
+                }
+            } catch (JSONException exc) {
+                System.err.println("   Adder_16_JSON not readable!");
+            }
+        }
+
+         //Loading the addition_24 error data
+        ar = null;
+        try {
+            ar = new FileReader(ADDER_NOISE_FILE_24);
+        } catch (IOException exc) {
+            System.err.println("   Adder_24 noise file not found; using defaults (0).");
+        }
+
+        if (ar != null) {
+            try {
+                JSONObject ajson = new JSONObject(new JSONTokener(ar));
+                ADDITION_TOTAL_24 = ajson.getInt("ADDITION_TOTAL");
+                for(int i = 0; i < 32; i++){
+                    ADDITION_ERRORS_24[i] = ajson.getInt("BIT" + (i+1));
+                }
+            } catch (JSONException exc) {
+                System.err.println("   Adder_24_JSON not readable!");
+            }
+        }
+
+        //************************************************************************
+        //********************The subtraction error model*************************
+        //************************************************************************
+        //Loading the subtraction error data 
+        ar = null;
+        try {
+            ar = new FileReader(TWOCOMP_NOISE_FILE);
+        } catch (IOException exc) {
+            System.err.println("   Twos_comp noise file not found; using defaults (0).");
+        }
+
+        if (ar != null) {
+            try {
+                JSONObject ajson = new JSONObject(new JSONTokener(ar));
+                TWOCOMP_TOTAL = ajson.getInt("ADDITION_TOTAL");
+                if(TWOCOMP_TOTAL != ADDITION_TOTAL){
+                    throw new ArithmeticException("errorz!");
+                }
+                for(int i = 0; i < 32; i++){
+                    SUBTRACTION_ERRORS[i] = ajson.getInt("BIT" + (i+1));
+                    SUBTRACTION_ERRORS[i] = SUBTRACTION_ERRORS[i] + ADDITION_ERRORS[i];
+                }
+            } catch (JSONException exc) {
+                System.err.println("   TWOCOMP_JSON not readable!");
+            } catch (ArithmeticException exc){
+                System.err.println("   Number of Two comp does not match Number of additions");
+            }
+        }
+
+        //Loading the subtraction_0 error data 
+        ar = null;
+        try {
+            ar = new FileReader(TWOCOMP_NOISE_FILE_0);
+        } catch (IOException exc) {
+            System.err.println("   Twos_comp_0 noise file not found; using defaults (0).");
+        }
+
+        if (ar != null) {
+            try {
+                JSONObject ajson = new JSONObject(new JSONTokener(ar));
+                TWOCOMP_TOTAL_0 = ajson.getInt("ADDITION_TOTAL");
+                if(TWOCOMP_TOTAL_0 != ADDITION_TOTAL_0){
+                    throw new ArithmeticException("errorz!");
+                }
+                for(int i = 0; i < 32; i++){
+                    SUBTRACTION_ERRORS_0[i] = ajson.getInt("BIT" + (i+1));
+                    SUBTRACTION_ERRORS_0[i] = SUBTRACTION_ERRORS_0[i] + ADDITION_ERRORS_0[i];
+                }
+            } catch (JSONException exc) {
+                System.err.println("   TWOCOMP_0_JSON not readable!");
+            } catch (ArithmeticException exc){
+                System.err.println("   Number of TWOCOMP_0 does not match Number of ADDITION_0");
+            }
+        }
+
+        //Loading the subtraction_8 error data 
+        ar = null;
+        try {
+            ar = new FileReader(TWOCOMP_NOISE_FILE_8);
+        } catch (IOException exc) {
+            System.err.println("   Twos_comp_0 noise file not found; using defaults (0).");
+        }
+
+        if (ar != null) {
+            try {
+                JSONObject ajson = new JSONObject(new JSONTokener(ar));
+                TWOCOMP_TOTAL_8 = ajson.getInt("ADDITION_TOTAL");
+                if(TWOCOMP_TOTAL_8 != ADDITION_TOTAL_8){
+                    throw new ArithmeticException("errorz!");
+                }
+                for(int i = 0; i < 32; i++){
+                    SUBTRACTION_ERRORS_8[i] = ajson.getInt("BIT" + (i+1));
+                    SUBTRACTION_ERRORS_8[i] = SUBTRACTION_ERRORS_8[i] + ADDITION_ERRORS_8[i];
+                }
+            } catch (JSONException exc) {
+                System.err.println("   TWOCOMP_8_JSON not readable!");
+            } catch (ArithmeticException exc){
+                System.err.println("   Number of TWOCOMP_8 does not match Number of ADDITION_8");
+            }
+        }
+
+        //Loading the subtraction_16 error data 
+        ar = null;
+        try {
+            ar = new FileReader(TWOCOMP_NOISE_FILE_16);
+        } catch (IOException exc) {
+            System.err.println("   Twos_comp_16 noise file not found; using defaults (0).");
+        }
+
+        if (ar != null) {
+            try {
+                JSONObject ajson = new JSONObject(new JSONTokener(ar));
+                TWOCOMP_TOTAL_16 = ajson.getInt("ADDITION_TOTAL");
+                if(TWOCOMP_TOTAL_16 != ADDITION_TOTAL_16){
+                    throw new ArithmeticException("errorz!");
+                }
+                for(int i = 0; i < 32; i++){
+                    SUBTRACTION_ERRORS_16[i] = ajson.getInt("BIT" + (i+1));
+                    SUBTRACTION_ERRORS_16[i] = SUBTRACTION_ERRORS_16[i] + ADDITION_ERRORS_16[i];
+                }
+            } catch (JSONException exc) {
+                System.err.println("   TWOCOMP_16_JSON not readable!");
+            } catch (ArithmeticException exc){
+                System.err.println("   Number of TWOCOMP_16 does not match Number of ADDITION_16");
+            }
+        }
+
+        //Loading the subtraction_24 error data 
+        ar = null;
+        try {
+            ar = new FileReader(TWOCOMP_NOISE_FILE_24);
+        } catch (IOException exc) {
+            System.err.println("   Twos_comp_24 noise file not found; using defaults (0).");
+        }
+
+        if (ar != null) {
+            try {
+                JSONObject ajson = new JSONObject(new JSONTokener(ar));
+                TWOCOMP_TOTAL_24 = ajson.getInt("ADDITION_TOTAL");
+                if(TWOCOMP_TOTAL_24 != ADDITION_TOTAL_24){
+                    throw new ArithmeticException("errorz!");
+                }
+                for(int i = 0; i < 32; i++){
+                    SUBTRACTION_ERRORS_24[i] = ajson.getInt("BIT" + (i+1));
+                    SUBTRACTION_ERRORS_24[i] = SUBTRACTION_ERRORS_24[i] + ADDITION_ERRORS_24[i];
+                }
+            } catch (JSONException exc) {
+                System.err.println("   TWOCOMP_24_JSON not readable!");
+            } catch (ArithmeticException exc){
+                System.err.println("   Number of TWOCOMP_24 does not match Number of ADDITION_24");
+            }
+        }
+
+	/*
+        if(ADDITION_TOTAL == 0){
+            System.err.println("   ADDITION_NOISE: DISABLED");
+        }
+        else{
+            System.err.println("   ADDITION_NOISE: ENABLED");
+            for(int i = 0; i<32; i++){
+                System.err.println("   Bit" + (i+1) + ": " + ADDITION_ERRORS[i]);
+            }
+            System.err.println("  Each bit divided by: " + ADDITION_TOTAL);
+        }
+	*/
     }
 
     /* (TRICK TO DIVIDE NOISY FROM DEFAULT)
@@ -1422,7 +1722,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public PhantomReference<Object> setApproximate(
-        Object o, boolean approx, boolean heap, int preciseSize, int approxSize
+        Object o, boolean approx, boolean heap, int preciseSize, int approxSize, int approximativeBits
     ) {
         if (debug) {
             System.out.println("EnerJ: Add object " + System.identityHashCode(o)
@@ -1442,7 +1742,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         long time = System.currentTimeMillis();
         ApproximationInformation infoObj =
             new ApproximationInformation(time, approx, heap,
-                                         preciseSize, approxSize);
+                                         preciseSize, approxSize, approximativeBits);
         PhantomReference<Object> phantomRef = new PhantomReference<Object>(o, referenceQueue);
 
         // Add to bookkeeping maps.
@@ -1491,6 +1791,14 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         switch (annotation) {
         case "Approx":
             return AnnotationType.Approx;
+        case "Approx0":
+            return AnnotationType.Approx0;
+        case "Approx8":
+            return AnnotationType.Approx8;
+        case "Approx16":
+            return AnnotationType.Approx16;
+        case "Approx24":
+            return AnnotationType.Approx24;
         case "Context":
             return AnnotationType.Context;
         case "Precise":
@@ -1498,6 +1806,25 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         default:
             assert false; // Should be any of the other three
             return null;
+        }
+    }
+
+    private int mapApproximativeBits(AnnotationType annotation) {
+        switch (annotation) {
+            case Approx:
+                return 32;
+            case Approx0:
+                return 0;
+            case Approx8:
+                return 8;
+            case Approx16:
+                return 16;
+            case Approx24:
+                return 24;
+            default:
+                // Verify approximativeness before calling this method
+                assert false;
+                return 0;
         }
     }
 
@@ -1559,14 +1886,16 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                         boolean approx = fic.annotation == AnnotationType.Approx; // Checking for Context is meaningless
                         long address = allocateMemoryAux(fic.fieldType, approx);
                         long tim = System.currentTimeMillis();
-                        int preciseSize = 0, approxSize = 0, fieldSize = numQytes(fic.fieldType, approx);
-                        if (approx)
+                        int preciseSize=0, approxSize=0, fieldSize = numQytes(fic.fieldType, approx);
+			int approximativeBits = 0;
+                        if (approx) {
                             approxSize = fieldSize;
-                        else
+			    approximativeBits = mapApproximativeBits(fic.annotation);
+			} else
                             preciseSize = fieldSize;
                         AddressInformation addressInfo =
                                 new AddressInformation(tim, approx, true, preciseSize,
-                                        approxSize, address, startup-1); // -1: Trick to force oldest possible time stamp
+                                        approxSize, approximativeBits, address, startup-1); // -1: Trick to force oldest possible time stamp
                         // TODO #bug: How to set static objects?
                         String key = STATIC_STRING + keyField; // Workaround...
                         memorySpace.put(key, addressInfo);
@@ -1869,6 +2198,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     	HashMap<String, FieldInfoContainer> fieldsInfo;
     	FieldInfoContainer fic;
         boolean approx;
+	int approximativeBits;
         int approxSize = 0, preciseSize = 0;
         String className = null;
         long tim = System.currentTimeMillis(); // Time stamp of creation
@@ -1913,9 +2243,48 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 
             fic = fieldsInfo.get(fieldname);
 
-            approx = fieldIsApprox(fic, c);
-            
-            //--Allocate the memory (i.e. get simulated address for this data)
+	    /* CHECK
+	     * When should approx be set?
+	     * Maybe only for Approx and not for the other cases
+	     */
+            if (ALLOW_APPROXIMATE) {
+                switch (fic.annotation) {
+                    case Approx:
+                        approx = true;
+                        approximativeBits = 32;
+                        break;
+                    case Approx0:
+                        approx = false;
+                        approximativeBits = 0;
+                        break;
+                    case Approx8:
+                        approx = false;
+                        approximativeBits = 8;
+                        break;
+                    case Approx16:
+                        approx = false;
+                        approximativeBits = 16;
+                        break;
+                    case Approx24:
+                        approx = false;
+                        approximativeBits = 24;
+                        break;
+                    case Precise:
+                        approx = false;
+                        approximativeBits = 0;
+                        break;
+                    default: // Context
+                        approx = c.approx;
+                        approximativeBits = c.approximativeBits;
+                        break;
+                    }
+            }
+            else {
+                approx = false; // Force to always be precise
+                approximativeBits = 0;
+            }
+
+            //--Allocate the memory (i.e., get simulated address for this data)
             address = allocateMemoryAux(fic.fieldType, approx);
             key = memoryKey(created, fieldname);
             addToCachelineTracker(approx ? address | approxMask : address, key);
@@ -1931,7 +2300,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             
             //--Register allocated memory
             ainfo = new AddressInformation(tim, approx, true, preciseSize,
-                                              approxSize, address, startup-1); // -1: Trick to force oldest possible time stamp
+					   approxSize, approximativeBits, address, startup-1); // -1: Trick to force oldest possible time stamp
             ainfo.setType(created, fieldname);
             memorySpace.put(key, ainfo);
             if (debug) {
@@ -1949,12 +2318,15 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * @param approx Whether the object is approximative or not
      * @param preciseSize Size of a precise object 
      * @param approxSize Size of an approximative object
+     * @param approximativeBits Number of bits to be approximate; 0 if all or none (precise)
      * @return true if operation went well, else false; although, this implementation
      * always returns true
      */
     @Override
     public boolean beforeCreation(Object creator, boolean approx,
-                                  int preciseSize, int approxSize) {
+                                  int preciseSize, int approxSize,
+				  int approximativeBits) {
+        System.err.println("beforeCreation: " + approximativeBits);
         if (debug) {
             System.out.println("EnerJ: before creator \""
                     + System.identityHashCode(creator)
@@ -1964,7 +2336,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             debugCounters.get("beforeCounter").incrementAndGet(); // DEBUG
         }
         // To pass info on to enterConstructor
-        CreationInfo c = new CreationInfo(creator, approx, preciseSize, approxSize);
+        CreationInfo c = new CreationInfo(creator, approx, preciseSize, approxSize, approximativeBits);
 
         long tid = Thread.currentThread().getId(); // Current thread id
 
@@ -1976,6 +2348,17 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         creations.put(tid, stack); // ...and save it into the hash map
 
         return true;
+    }
+
+    /**
+     * Called when the objects' constructor is called and logs this call.
+     * @param The object whose constructor is entered
+     * @return true if the operation went well, else false
+     */
+    @Override
+    public boolean beforeCreation(Object creator, boolean approx,
+                                  int preciseSize, int approxSize) {
+        return this.beforeCreation(creator, approx, preciseSize, approxSize, 0);
     }
 
     /**
@@ -2021,7 +2404,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
            TODO: Some methods should probably be synchronized, but I think this
            wouldn't help against this particular problem.
         */ 
-        this.setApproximate(created, c.approx, true, c.preciseSize, c.approxSize);
+        this.setApproximate(created, c.approx, true, c.preciseSize, c.approxSize, c.approximativeBits);
 
         // Sort all fields in decreasing size order
         List<Map.Entry<MyTuple<String, Field>, Integer>> sortedClassFields
@@ -2068,7 +2451,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         CreationInfo c = stack.peek();
 
         if (c.creator == creator) {
-            this.setApproximate(created, c.approx, true, c.preciseSize, c.approxSize);
+            this.setApproximate(created, c.approx, true, c.preciseSize, c.approxSize, c.approximativeBits);
             if (c.approx) {
                 stack.pop();
             }
@@ -2127,7 +2510,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public <T> T newArray(T created, int dims, boolean approx,
-                          int preciseElSize, int approxElSize) {
+                          int preciseElSize, int approxElSize, int approximativeBits) {
         int elems = 1;
         Object arr = created;
         if (!ALLOW_APPROXIMATE) // Turn off approximativity if precise objects only
@@ -2142,7 +2525,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                 arr = Array.get(arr, 0);
         }
         this.setApproximate(created, false, true,
-                            preciseElSize*elems, approxElSize*elems);
+			    preciseElSize*elems, approxElSize*elems, approximativeBits);
 
         if (!approx) {
             preciseElSize += approxElSize;
@@ -2151,7 +2534,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 
         // Create addresses - first pointers (references), then values
         // References are _always_ precise => approx == false
-        assignAddressesToArrayItems(created, false, false); // References
+        assignAddressesToArrayItems(created, false, false, approximativeBits); // References
         
         // If the array is approximative, pad out after the references to make
         // make space between this array and any followin approximative data.
@@ -2165,7 +2548,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             }
         }
         
-        assignAddressesToArrayItems(created, approx, true);  // Values
+        assignAddressesToArrayItems(created, approx, true, approximativeBits);  // Values
         // Eventually pad the rest of a non-filled cache-line
         wastedSpace = (int)(peekAddress(approx) % cacheLineSizeInQytes);
         if (wastedSpace != 0 && padCacheLines) {
@@ -2180,6 +2563,13 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         }
 
         return created;
+    }
+
+    @Override
+    public <T> T newArray(T created, int dims, boolean approx,
+                          int preciseElSize, int approxElSize) {
+        return this.newArray(created, dims, approx, preciseElSize,
+                             approxElSize, 0);
     }
 
     /**
@@ -2414,13 +2804,73 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         return value;
     }
 
+    /**
+     * Add simulated adder noise errors. 
+     * @param Input number
+     * @return Potentially some erroneous value
+     */
+    private Number adderNoise(Number num, int approximativeBits) {
+	int error_array [];
+	int total_additions;
+
+	switch(approximativeBits){
+	case 0:
+	    error_array = ADDITION_ERRORS_0;
+	    total_additions = ADDITION_TOTAL_0;
+	    break;
+	case 8:
+	    error_array = ADDITION_ERRORS_8;
+	    total_additions = ADDITION_TOTAL_8;
+	    break;
+	case 16:
+	    error_array = ADDITION_ERRORS_16;
+	    total_additions = ADDITION_TOTAL_16;
+	    break;
+	case 24:
+	    error_array = ADDITION_ERRORS_24;
+	    total_additions = ADDITION_TOTAL_24;
+	    break;
+	default:
+	    error_array = ADDITION_ERRORS;
+	    total_additions = ADDITION_TOTAL;
+	    break;
+	}
+
+        if(ADDITION_TOTAL == 0){
+            return num;
+        }
+        else{
+            for(int i = 0; i < error_array.length; i ++){
+                if(Math.ceil(Math.random()*total_additions) <= error_array[i]) {
+                    if(Math.random()<0.5){
+                        num = (int)num + (int)Math.pow(2,i);
+                    }
+                    else{
+                        num = (int)num - (int)Math.pow(2,i);
+                    }
+                }
+            }
+            return num;
+        }
+    }
+
+    /**
+     * Perform approximate ALU operation, possibly resulting in timing ALU
+     * errors.
+     * @param lhs Left hand side value
+     * @param rhs Right hand side value
+     * @param op Arithmetic operator
+     * @param nk Number type
+     * @param approx Whether the operation is approximate or not
+     * @return Result of operation
+     */
     @Override
     public Number binaryOp(Number lhs,
                            Number rhs,
                            ArithOperator op,
                            NumberKind nk,
-                           boolean approx) {
-
+                           boolean approx, 
+			   int approximativeBits) {
         // DEFAULT
         countOperation(nk + opSymbol(op), approx);
 
@@ -2521,9 +2971,13 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             }
         }
 
+        //Addition errors
+        if(approximativeBits!=0 && nk == NumberKind.INT && (op == ArithOperator.PLUS || op == ArithOperator.MINUS)){
+	    num = adderNoise(num, approximativeBits);
+        }
+
         return num;
     }
-
 
     /**
      * Look for a field in a class hierarchy.
@@ -2773,10 +3227,11 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         Number rhs,
         boolean returnOld,
         NumberKind nk,
-        boolean approx
+        boolean approx,
+        int approximativeBits
     ) {
         T tmp = loadLocal(var, approx);
-        T res = (T) binaryOp(var.value, rhs, op, nk, approx);
+        T res = (T) binaryOp(var.value, rhs, op, nk, approx, approximativeBits);
         storeLocal(var, approx, res);
         if (returnOld)
             return tmp;
@@ -2838,10 +3293,11 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         Number rhs,
         boolean returnOld,
         NumberKind nk,
-        boolean approx
+        boolean approx,
+        int approximativeBits
     ) {
         T tmp = (T) loadArray(array, index, approx);
-        T res = (T) binaryOp(tmp, rhs, op, nk, approx);
+        T res = (T) binaryOp(tmp, rhs, op, nk, approx, approximativeBits);
         storeArray(array, index, approx, (T) makeKind(res, nk));
         if (returnOld)
             return tmp;
@@ -2870,10 +3326,11 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         Number rhs,
         boolean returnOld,
         NumberKind nk,
-        boolean approx
+        boolean approx,
+        int approximativeBits
     ) {
         T tmp = (T) loadField(obj, fieldname, approx);
-        T res = (T) binaryOp(tmp, rhs, op, nk, approx);
+        T res = (T) binaryOp(tmp, rhs, op, nk, approx, approximativeBits);
         storeField(obj, fieldname, approx, (T) makeKind(res, nk));
         if (returnOld)
             return tmp;

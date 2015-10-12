@@ -25,6 +25,11 @@ class CreationInfo {
     public int approxSize;
 
     /**
+     * Number of approximate bits; if 0, the whole (primitive) type is approximate
+     */
+    public int approximativeBits = 0;
+
+    /**
      * Simple constructor to store given argument values.
      * @param creator Creator of the object
      * @param approx Whether or not the created object is approximative
@@ -32,10 +37,11 @@ class CreationInfo {
      * @param approxSize Approximative data size
      */
     CreationInfo(Object creator, boolean approx, int preciseSize,
-                 int approxSize) {
+                 int approxSize, int approximativeBits) {
         this.creator = creator;
         this.approx = approx;
         this.preciseSize = preciseSize;
         this.approxSize = approxSize;
+        this.approximativeBits = approximativeBits;
     }
 }

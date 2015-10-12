@@ -52,6 +52,11 @@ class AddressInformation extends ApproximationInformation {
         return ((flipped >> pos) & 1) != 0;
     }
 
+    AddressInformation(long t, boolean approx, boolean heap, int preciseSize,
+               int approxSize, int approximativeBits, long address) {
+        this(t, approx, heap, preciseSize, approxSize, approximativeBits, address, -1);
+    }
+
     /**
      * Set new flip status; used for PCM modelling.
      * @param flipped New flip status; true for previous bit flip, false for
@@ -94,8 +99,8 @@ class AddressInformation extends ApproximationInformation {
      * Sets all given states.
      */
     AddressInformation(long t, boolean approx, boolean heap, int preciseSize,
-               int approxSize, long address, long timeStamp) {
-        super(t, approx, heap, preciseSize, approxSize);
+               int approxSize, int approximativeBits, long address, long timeStamp) {
+        super(t, approx, heap, preciseSize, approxSize, approximativeBits);
         this.timeStamp = timeStamp; // Manually entered SRAM time
         this.address = address; // The address
     }
