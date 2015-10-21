@@ -1,6 +1,6 @@
 package enerj.rt;
 
-import java.lang.ref.WeakReference;
+//import java.lang.ref.WeakReference;
 
 /**
  * Information related to specific data blocks and their time of operation
@@ -23,8 +23,8 @@ class AddressInformation extends ApproximationInformation {
     /**
      * May be an array- or some class object.
      */
-    private WeakReference<Object> obj = null;
-    //private Object obj = null;
+    //private WeakReference<Object> obj = null;
+    private Object obj = null;
 
     /**
      * If obj is a class object, field name is != null.
@@ -129,8 +129,8 @@ class AddressInformation extends ApproximationInformation {
      * @param index Index in the array
      */
     public void setType(Object obj, int index) {
-        //this.obj = obj;
-        this.obj = new WeakReference(obj);
+        this.obj = obj;
+        //this.obj = new WeakReference(obj);
         this.index = index;
     }
 
@@ -141,8 +141,8 @@ class AddressInformation extends ApproximationInformation {
      * @param fieldname Name of the field in the class
      */
     public void setType(Object obj, String fieldname) {
-        //this.obj = obj;
-        this.obj = new WeakReference(obj);
+        this.obj = obj;
+        //this.obj = new WeakReference(obj);
         this.fieldname = fieldname;
     }
 
@@ -152,10 +152,10 @@ class AddressInformation extends ApproximationInformation {
      */
     public Object[] getObjectAndSpecification() {
         return fieldname == null
-            //? new Object[]{obj, index}
-            //: new Object[]{obj, fieldname};
-            ? new Object[]{obj.get(), index}
-            : new Object[]{obj.get(), fieldname};
+            ? new Object[]{obj, index}
+            : new Object[]{obj, fieldname};
+            //? new Object[]{obj.get(), index}
+            //: new Object[]{obj.get(), fieldname};
     }
 
     /**

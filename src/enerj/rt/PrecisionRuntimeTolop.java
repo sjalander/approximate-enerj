@@ -178,12 +178,16 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     private boolean differentDRAMSpaces = true; // Whether approx/precise lives in different DRAM
     
     /* Indexes represents 2s, 4s, 8s, … */
-    double[] S2ErrorRateLookup = {24.0, 24.0, 7.2, 5.1, 4.15, 3.7, 3.4, 3.1,
-        3.0, 2.9, 2.8, 2.7, 2.6, 2.5, 2.4, 2.3, 2.2, 2.1};
+    //double[] S2ErrorRateLookup = {24.0, 24.0, 7.2, 5.1, 4.15, 3.7, 3.4, 3.1,
+    //    3.0, 2.9, 2.8, 2.7, 2.6, 2.5, 2.4, 2.3, 2.2, 2.1};
+    double[] S2ErrorRateLookup = {1e-24, 1.59e-12, 5.85e-6, 7.45e-4, .01, .02,
+        .05, .08, .12, .17, .22, .28, .35, .43, .52, .62, .73};
 
     /* Indexes represents 2s, 4s, 8s, … */
-    double[] S3ErrorRateLookup = {7.5, 3.6, 2.9, 2.5, 2.25, 2.0, 1.9, 1.8, 1.7,
-        1.5, 1.2, 1.1, 1.0, 0.9, 0.8, 0.75, 0.7, 0.65};
+    //double[] S3ErrorRateLookup = {7.5, 3.6, 2.9, 2.5, 2.25, 2.0, 1.9, 1.8, 1.7,
+    //    1.5, 1.2, 1.1, 1.0, 0.9, 0.8, 0.75, 0.7, 0.65};
+    double[] S3ErrorRateLookup = {5.85e-6, .02, .12, .28, .52, .85, 1.30, 1.90,
+        2.67, 3.64, 4.84, 6.29, 7.99, 9.95, 12.16, 14.61, 17.27};
 
     /**
      * Maps specific (unique) key representation of some memory block -> its
@@ -821,10 +825,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     private <T> Boolean memoryOp(String key, boolean store, long currentTime) {
     	//--Uninitialized memory – from stdin array?
         if (!memorySpace.containsKey(key)) {
-            if (debug) {
+            //if (debug) {
                 System.err.println("EnerJ: Missed key " + key);
-                debugCounters.get("missingKeyCounter").incrementAndGet();
-            }
+                //debugCounters.get("missingKeyCounter").incrementAndGet();
+            //}
             return null;
         }
 
@@ -1114,8 +1118,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         int index = (int)Math.round((log2(age/1000)))-1;
         if (index < 0) // All under 2000ms is -> index 0
             index = 0;
-        double S2ErrorRate = Math.pow(10, S2ErrorRateLookup[index]);
-        double S3ErrorRate = Math.pow(10, S3ErrorRateLookup[index]); 
+        //double S2ErrorRate = Math.pow(10, S2ErrorRateLookup[index]);
+        //double S3ErrorRate = Math.pow(10, S3ErrorRateLookup[index]); 
+        double S2ErrorRate = 1/(.01*S2ErrorRateLookup[index]);
+        double S3ErrorRate = 1/(.01*S3ErrorRateLookup[index]);
 
         for (int flipbitpos=0; flipbitpos < (width*8)>>1; flipbitpos++) { 
             if (!aInfo.isFlipped(flipbitpos)) {
@@ -1573,6 +1579,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         }
         catch (JSONException e) {
             System.err.println("Error while parsing JSONObject.");
+            System.err.println(e.getMessage());
             // e.printStackTrace();
             System.exit(1); // No idea to continue beyond this point
         }
@@ -1713,7 +1720,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             break;
         }
         if (PCM_SIMULATION)
-            System.out.println("NOTE: This is a PCM simulation run.");
+            System.err.println("NOTE: This is a PCM simulation run.");
         
         // Import class information, such as approx/precise annotations
         // Also, insert any static members to memory
@@ -1883,6 +1890,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                 continue;
 
             String fieldname = classFieldTup.y.getName();
+            //System.err.println("className: "+className+"; fieldname: "+fieldname);
 
             //--Get class annotation info
             //--This must exist, otherwise the program execution cannot proceed
@@ -2625,10 +2633,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 
             //--TOLOP
             //--Load from simulated memory hierarchy
-            if (null != obj) {
+            //if (null != obj) {
                 String key = memoryKey(obj, fieldname);
                 evictionOccurred = loadFromMemory(key, tim);
-            }
+            //}
 
             val = loadValue((T) field.get(obj), approx, MemKind.FIELD);
 

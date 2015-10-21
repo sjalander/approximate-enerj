@@ -44,3 +44,4 @@ build
 paper
 plume.jar
 tests
+*.swp
