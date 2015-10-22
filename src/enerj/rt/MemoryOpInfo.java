@@ -133,7 +133,7 @@ class MemoryOpInfo {
         return memoryOpCounters.get(approx ? "approxFieldStores" : "preciseFieldStores").incrementAndGet();
     }
 
-	// Had to be inventive of argument names here… *cough*
+	// Had to be inventive of argument names here... *cough*
     /**
      * Get the number of evictions caused by a cache line of some approximation
      * type of another cache line of some type.

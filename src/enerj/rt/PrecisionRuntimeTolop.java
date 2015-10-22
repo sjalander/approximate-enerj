@@ -57,7 +57,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     
     /**
      * Tuple for holding when some specific cache line were held in SRAM/DRAM. 
-     * @author Gustaf Borgström
+     * @author Gustaf Borgstrom
      */
     private class TimeTuple {
     	long sramTime;
@@ -177,13 +177,13 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     private boolean padCacheLines = false; // Whether cache lines should be padded to the end after allocation, or not
     private boolean differentDRAMSpaces = true; // Whether approx/precise lives in different DRAM
     
-    /* Indexes represents 2s, 4s, 8s, … */
+    /* Indexes represents 2s, 4s, 8s, ... */
     //double[] S2ErrorRateLookup = {24.0, 24.0, 7.2, 5.1, 4.15, 3.7, 3.4, 3.1,
     //    3.0, 2.9, 2.8, 2.7, 2.6, 2.5, 2.4, 2.3, 2.2, 2.1};
     double[] S2ErrorRateLookup = {1e-24, 1.59e-12, 5.85e-6, 7.45e-4, .01, .02,
         .05, .08, .12, .17, .22, .28, .35, .43, .52, .62, .73};
 
-    /* Indexes represents 2s, 4s, 8s, … */
+    /* Indexes represents 2s, 4s, 8s, ... */
     //double[] S3ErrorRateLookup = {7.5, 3.6, 2.9, 2.5, 2.25, 2.0, 1.9, 1.8, 1.7,
     //    1.5, 1.2, 1.1, 1.0, 0.9, 0.8, 0.75, 0.7, 0.65};
     double[] S3ErrorRateLookup = {5.85e-6, .02, .12, .28, .52, .85, 1.30, 1.90,
@@ -234,8 +234,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         }
         else {
         	// If the same DRAM space is used for precise/approx memory,
-        	// it doesn't matter technically what generator is used – using
-        	// "…Precise" is sufficient.
+        	// it doesn't matter technically what generator is used - using
+        	// "...Precise" is sufficient.
             address = addressGeneratorPrecise;
             addressGeneratorPrecise += nMemory;
         }
@@ -294,7 +294,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             System.err.println(String.format("addToCachelineTracker: too many"
             		+ "addresses (%d) in cache line for address %d",
             		cacheline.size(), address));
-            System.exit(1); // This will screw it up too much: exit program…
+            System.exit(1); // This will screw it up too much: exit program...
         }
         cacheline.add(key);
 
@@ -433,7 +433,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         else if (value.equals("double") || value.equals("java.lang.Double"))  return 8;
         else if (value.equals("char") || value.equals("java.lang.Character"))  return 2;
         else if (value.equals("boolean") || value.equals("java.lang.Boolean"))  return 1;
-        else { /* …or instances of some general other object */
+        else { /* ...or instances of some general other object */
             return 10;
         }
     }
@@ -477,7 +477,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     private <T> void assignAddressesToArrayItems(T created, boolean approx,
             boolean isValue) {
-        // …then, give all values addresses
+        // ...then, give all values addresses
         Object arr = created;
         ElementProcessor p = new ElementProcessor() {
             @Override
@@ -659,12 +659,12 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 			}
 			catch (NoSuchFieldException e) {
 				System.err.println(String.format("introduceErrorsOnCacheLine:"
-						+ "No field: %s; could not introduce errors…",
+						+ "No field: %s; could not introduce errors...",
 							(String)objAndSpec[1]));
 			}
 			catch (IllegalAccessException e) {
 				System.err.println("introduceErrorsOnCacheLine: "
-						+ "Illegal field access; could not introduce errors…");
+						+ "Illegal field access; could not introduce errors...");
 			}
 		}
 	}
@@ -720,7 +720,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             default:
                 //--NONE: skip error injection (shouldn't be reached)
                 assert false;
-                System.err.println("ERROR: Approximate value reached NONE – check this…");
+                System.err.println("ERROR: Approximate value reached NONE - check this...");
                 break;
             }
             evictedTimeTuple.setDramTime(currentTimestamp);
@@ -764,7 +764,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         Long evictedAddressTag = (long)0;
         TimeTuple evictedTimeTuple = null;
         Boolean evictionOccurred = true;
-        //--Early in program execution – nothing to evict yet
+        //--Early in program execution - nothing to evict yet
         if (indexAssocLine.size() < sramAssociativity) {
             indexAssocLine.put(currentAddrTag, currentTimeTuple);
             currentTimeTuple.setLruTime(tim);
@@ -823,7 +823,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * @return TimeTuple of the actual data block
      */
     private <T> Boolean memoryOp(String key, boolean store, long currentTime) {
-    	//--Uninitialized memory – from stdin array?
+    	//--Uninitialized memory - from stdin array?
         if (!memorySpace.containsKey(key)) {
             //if (debug) {
                 System.err.println("EnerJ: Missed key " + key);
@@ -1243,7 +1243,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             catch (NoSuchFieldException e) {
                 if (debug)
                     System.err.println("Field " + field + " not found in "
-                        + objClass.getName() + "; trying superclass…");
+                        + objClass.getName() + "; trying superclass...");
                 objClass = objClass.getSuperclass();
                 continue;
             }
@@ -1539,7 +1539,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                     fic.isFinal = jsonField.getBoolean("final");
                     fic.fieldType = jsonField.getString("type");
                     if (debug) {
-                        System.out.print("\t" + keyField + " – ");
+                        System.out.print("\t" + keyField + " - ");
                         System.out.println(fic.toString());
                     }
                     fieldsInfo.put(keyField, fic);
@@ -1568,7 +1568,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                                 new AddressInformation(tim, approx, true, preciseSize,
                                         approxSize, address, startup-1); // -1: Trick to force oldest possible time stamp
                         // TODO #bug: How to set static objects?
-                        String key = STATIC_STRING + keyField; // Workaround…
+                        String key = STATIC_STRING + keyField; // Workaround...
                         memorySpace.put(key, addressInfo);
                         addToCachelineTracker(approx ? address | approxMask : address, key);
                     }
@@ -1969,11 +1969,11 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         long tid = Thread.currentThread().getId(); // Current thread id
 
         Stack<CreationInfo> stack = creations.get(tid); // Get info stack based on current thread ID
-        if (stack==null) { // …or create a new if first time accessed
+        if (stack==null) { // ...or create a new if first time accessed
             stack = new Stack<CreationInfo>();
         }
         stack.push(c); // Insert the new object info onto the stack
-        creations.put(tid, stack); // …and save it into the hash map
+        creations.put(tid, stack); // ...and save it into the hash map
 
         return true;
     }
@@ -2149,7 +2149,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             approxElSize = 0;
         }
 
-        // Create addresses – first pointers (references), then values
+        // Create addresses - first pointers (references), then values
         // References are _always_ precise => approx == false
         assignAddressesToArrayItems(created, false, false); // References
         
@@ -2297,7 +2297,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
            bw.close();
         }
         catch (IOException e) {
-            System.err.println("Error while writing (new) EnerJ results to file…");
+            System.err.println("Error while writing (new) EnerJ results to file...");
             //e.printStackTrace();
         }
         if (debug) { // Same as dump to file above
@@ -2661,7 +2661,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public <T> T storeLocal(Reference<T> ref, boolean approx, T rhs) {
-    	// TODO #general: If static – allow local errors after all?
+    	// TODO #general: If static - allow local errors after all?
         memOpInfo.increaseLocalStores(ALLOW_APPROXIMATE ? approx : false);
         ref.value = storeValue(rhs, approx, MemKind.VARIABLE);
         return ref.value;
