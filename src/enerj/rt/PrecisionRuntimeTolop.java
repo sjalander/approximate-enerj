@@ -825,10 +825,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     private <T> Boolean memoryOp(String key, boolean store, long currentTime) {
     	//--Uninitialized memory - from stdin array?
         if (!memorySpace.containsKey(key)) {
-            //if (debug) {
+            if (debug) {
                 System.err.println("EnerJ: Missed key " + key);
                 //debugCounters.get("missingKeyCounter").incrementAndGet();
-            //}
+            }
             return null;
         }
 
