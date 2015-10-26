@@ -1,4 +1,3 @@
-
 /**
  * Different TODO tags:
  * --
@@ -107,11 +106,11 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         }
         
         long getLineAddress() {
-        	return lineAddress;
+	    return lineAddress;
         }
         
         void setLineAddress(long lineAddress) {
-        	this.lineAddress = lineAddress;
+	    this.lineAddress = lineAddress;
         }
     }
 
@@ -181,20 +180,20 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     //double[] S2ErrorRateLookup = {24.0, 24.0, 7.2, 5.1, 4.15, 3.7, 3.4, 3.1,
     //    3.0, 2.9, 2.8, 2.7, 2.6, 2.5, 2.4, 2.3, 2.2, 2.1};
     double[] S2ErrorRateLookup = {1e-24, 1.59e-12, 5.85e-6, 7.45e-4, .01, .02,
-        .05, .08, .12, .17, .22, .28, .35, .43, .52, .62, .73};
+				  .05, .08, .12, .17, .22, .28, .35, .43, .52, .62, .73};
 
     /* Indexes represents 2s, 4s, 8s, ... */
     //double[] S3ErrorRateLookup = {7.5, 3.6, 2.9, 2.5, 2.25, 2.0, 1.9, 1.8, 1.7,
     //    1.5, 1.2, 1.1, 1.0, 0.9, 0.8, 0.75, 0.7, 0.65};
     double[] S3ErrorRateLookup = {5.85e-6, .02, .12, .28, .52, .85, 1.30, 1.90,
-        2.67, 3.64, 4.84, 6.29, 7.99, 9.95, 12.16, 14.61, 17.27};
+				  2.67, 3.64, 4.84, 6.29, 7.99, 9.95, 12.16, 14.61, 17.27};
 
     /**
      * Maps specific (unique) key representation of some memory block -> its
      * address information.
      */
     private Map<String, AddressInformation> memorySpace =
-            new HashMap<String, AddressInformation>(); 
+	new HashMap<String, AddressInformation>(); 
     
     /**
      * Info about accesses in memory hierarchy.
@@ -228,14 +227,14 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     private long createAddress(long nMemory, boolean approx) {
         long address;
         if (approx && differentDRAMSpaces) {
-        	// TODO #general Use address mask instead of explicit 'approx' field?  
+	    // TODO #general Use address mask instead of explicit 'approx' field?  
             address = addressGeneratorApprox;
             addressGeneratorApprox += nMemory;
         }
         else {
-        	// If the same DRAM space is used for precise/approx memory,
-        	// it doesn't matter technically what generator is used - using
-        	// "...Precise" is sufficient.
+	    // If the same DRAM space is used for precise/approx memory,
+	    // it doesn't matter technically what generator is used - using
+	    // "...Precise" is sufficient.
             address = addressGeneratorPrecise;
             addressGeneratorPrecise += nMemory;
         }
@@ -252,12 +251,12 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     	long cachelineAddress;
     	boolean approx = (address & approxMask) != 0;
     	if (approx) { // If set: avoid tag mask mess-up
-    		cachelineAddress = address & ~approxMask;
-    		cachelineAddress = address - (address % cacheLineSizeInQytes);
-    		cachelineAddress |= approxMask;
+	    cachelineAddress = address & ~approxMask;
+	    cachelineAddress = address - (address % cacheLineSizeInQytes);
+	    cachelineAddress |= approxMask;
     	}
     	else {
-    		cachelineAddress = address - (address % cacheLineSizeInQytes);
+	    cachelineAddress = address - (address % cacheLineSizeInQytes);
     	}
     	return cachelineAddress;
     }
@@ -271,8 +270,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     private ArrayList<String> getFromCacheLineTracker(long address) {
     	long cachelineAddress = getCacheLineAddress(address);
         return cachelineTracker.containsKey(cachelineAddress)
-        		? cachelineTracker.get(cachelineAddress)
-        		: null;
+	    ? cachelineTracker.get(cachelineAddress)
+	    : null;
     }
 
     /**
@@ -292,8 +291,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 
         if (cacheline.size() > cacheLineSizeInQytes) { 
             System.err.println(String.format("addToCachelineTracker: too many"
-            		+ "addresses (%d) in cache line for address %d",
-            		cacheline.size(), address));
+					     + "addresses (%d) in cache line for address %d",
+					     cacheline.size(), address));
             System.exit(1); // This will screw it up too much: exit program...
         }
         cacheline.add(key);
@@ -378,23 +377,23 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             return (approx ? 4 : 8);
         case "java.lang.Long":
         case "long":
-             return (approx ? 8 : 16);
+	    return (approx ? 8 : 16);
         case "java.lang.Float":
         case "Float":
         case "float":
-             return (approx ? 4 : 8);
+	    return (approx ? 4 : 8);
         case "java.lang.Double":
         case "Double":
         case "double":
-             return (approx ? 8 : 16);
+	    return (approx ? 8 : 16);
         case "java.lang.Character":
         case "Character":
         case "char":
-             return (approx ? 2 : 4);
+	    return (approx ? 2 : 4);
         case "java.lang.Boolean":
         case "Boolean":
         case "boolean":
-             return (approx ? 1 : 2);
+	    return (approx ? 1 : 2);
         default:
             return POINTER_QYTE_SIZE;
         }
@@ -454,7 +453,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * @param approx Whether the array elements are approximate or not 
      */
     private static void addressesToArrayElemsAux(Object o, ElementProcessor p,
-            boolean approx, boolean isValue, int approximativeBits) {
+						 boolean approx, boolean isValue, int approximativeBits) {
         int n = Array.getLength(o);
         for (int i = 0; i < n; i++) {
             Object e = Array.get(o, i);
@@ -481,42 +480,42 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         // then, give all values addresses
         Object arr = created;
         ElementProcessor p = new ElementProcessor() {
-            @Override
-            public void process(Object arr, int index, boolean approx, int approximativeBits) {
-                long tim = System.currentTimeMillis(); // Time stamp of creation
+		@Override
+		public void process(Object arr, int index, boolean approx, int approximativeBits) {
+		    long tim = System.currentTimeMillis(); // Time stamp of creation
                 
-                // Compute item size(s)
-                int typeSize, approxSize = 0, preciseSize = 0;
-                Object obj = Array.get(arr, index);
-                String typeName;
-                if (obj == null) { // Array contents may be null values; if so, determine array type
-                    typeName = arr.getClass().getCanonicalName().replace("[]", "");
-                    typeSize = numQytes(typeName, approx);
-                }
-                else {
-                    typeName = obj.getClass().getName();
-                    typeSize = numQytes(obj.getClass().getName(), approx);
-                }
+		    // Compute item size(s)
+		    int typeSize, approxSize = 0, preciseSize = 0;
+		    Object obj = Array.get(arr, index);
+		    String typeName;
+		    if (obj == null) { // Array contents may be null values; if so, determine array type
+			typeName = arr.getClass().getCanonicalName().replace("[]", "");
+			typeSize = numQytes(typeName, approx);
+		    }
+		    else {
+			typeName = obj.getClass().getName();
+			typeSize = numQytes(obj.getClass().getName(), approx);
+		    }
                 
-                if (approx)
-                    approxSize = typeSize;
-                else
-                    preciseSize = typeSize;
+		    if (approx)
+			approxSize = typeSize;
+		    else
+			preciseSize = typeSize;
                 
-                String key = memoryKey(arr, index);
-                long address = createAddress(typeSize, approx); // Address to array reference
-                addToCachelineTracker(approx ? address | approxMask : address, key);
+		    String key = memoryKey(arr, index);
+		    long address = createAddress(typeSize, approx); // Address to array reference
+		    addToCachelineTracker(approx ? address | approxMask : address, key);
                 
-                AddressInformation ainfo =
+		    AddressInformation ainfo =
                         new AddressInformation(tim, approx, true, preciseSize,
-                                approxSize, approximativeBits, address, startup-1); // -1: Trick to force oldest possible time stamp
-                ainfo.setType(arr, index);
-                memorySpace.put(key, ainfo);
+					       approxSize, approximativeBits, address, startup-1); // -1: Trick to force oldest possible time stamp
+		    ainfo.setType(arr, index);
+		    memorySpace.put(key, ainfo);
                 
-                if (debug) {
-                }
-            }
-        };
+		    if (debug) {
+		    }
+		}
+	    };
         addressesToArrayElemsAux(arr, p, approx, isValue, approximativeBits);
     }
 
@@ -529,7 +528,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * @return The times associated with the cache line address
      */
     private TimeTuple getCurrentCachelineTimeTuple(AddressInformation ainfo,
-    		long addrNoWordOffset, long tim) {
+						   long addrNoWordOffset, long tim) {
         TimeTuple currentLine;
         // Create a unique identifier for every cache line
         final String memoryTimeStampsString = (ainfo.approx ? "A" : "P") + addrNoWordOffset;
@@ -546,208 +545,156 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     }
 
     /**
-     * Introduce errors on LOADED cache lines. Memory block time stamps are
-     * updated with currentTime after operation.
+     * Introduce errors on memory blocks of cache line size.
      *
      * @param <T> The (generic) return type
+     * @param currentTimeTuple Data line of the current memory block
      * @param addrTag The address (tag)
-     * @param lastTime Last time stamp to calculate from
-     * @param currentTime Current time stamp to calculate to
-     * @param tim invProb Inverse probability for a bit error to occur
-     * @param isDynamic true if a time dependent error model is to be used;
+     * @param currentTimeStamp Current time stamp to calculate to
+     * @param dram true if the cacheline is read from dram
      * false if a static error model is to be used
      */
-    private <T> void introduceErrorsOnCacheLine(long addrTag, long lastTime,
-                                                long currentTime, long invProb,
-                                                boolean isDynamic) {
-        //--Introduce errors into the read data if approximate, etc
+    private <T> void introduceErrorsOnCacheLine(TimeTuple currentTimeTuple,
+						long addrTag, 
+						long currentTimeStamp,
+						boolean dram) {
+        /* Apply the error model to approximate data */
         ArrayList<String> cacheline = getFromCacheLineTracker(addrTag);
-        AddressInformation addressInformation;
+        AddressInformation addressInfo;
         for (String key : cacheline) {
-        	addressInformation = memorySpace.get(key);
-            loadChangeStore(addressInformation, lastTime, currentTime,
-            				invProb, isDynamic);
+	    addressInfo = memorySpace.get(key);
+	    // Check if this item has approximative bits and in that
+	    // case apply errors
 
-            // DEBUG
-            //int flippedBitString = addressInformation.getFlippedBitString();
-            //if (flippedBitString != 0)
-            //    System.err.println("Loaded line: flipped string is NOT 0");
+	    System.out.println(dram ? "DRAMld " : "DRAMst " + addressInfo.approx + " bits: " + addressInfo.getApproximativeBits());
 
-            addressInformation.clearFlipped();
+	    if (dram) {
+		// Reading from DRAM and writing into cache
+		runInfo.countOperation("Store", addressInfo.approx, addressInfo.getApproximativeBits());
+		runInfo.countOperation("DRAMload", addressInfo.approx, addressInfo.getApproximativeBits());
+	    } else {
+		// Reading from cache and writing to DRAM
+		runInfo.countOperation("Load", addressInfo.approx, addressInfo.getApproximativeBits());
+		runInfo.countOperation("DRAMstore", addressInfo.approx, addressInfo.getApproximativeBits());
+	    }
+
+	    if (ALLOW_APPROXIMATE && addressInfo.approximativeBits!=0) {
+		loadChangeStore(addressInfo, currentTimeTuple, currentTimeStamp, dram);
+		addressInfo.clearFlipped();
+	    }
         }
     }
-    
+
     /**
-     * Introduce errors on EVICTED cache lines. Memory block time stamps are
-     * updated with currentTime after operation.
-     *
-     * @param <T> The (generic) return type
-     * @param addrTag The address (tag)
-     * @param currentTime Current time stamp to calculate to
-     * @param tim invProb Inverse probability for a bit error to occur
-     * @param isDynamic true if a time dependent error model is to be used;
-     * false if a static error model is to be used
+     * Apply some error model on a data item
+     * @param value The data to apply the error model on
+     * @param addressInfo The address information of value 
+     * @param currentTimeTuple Data line of the current memory block
+     * @param currentTime Current time stamp
+     * @param dram True if this is an access to dram (main memory)
+     * @param <T> Generic type of value
      */
-    private <T> void introduceErrorsOnCacheLine(long addrTag, long currentTime,
-    											long invProb, boolean isDynamic) {
-        //--Introduce errors into the read data if approximate, etc
-        ArrayList<String> cacheline = getFromCacheLineTracker(addrTag);
-        AddressInformation addressInformation;
-        for (String key : cacheline) {
-        	addressInformation = memorySpace.get(key);
-        	loadChangeStore(addressInformation, addressInformation.getTimeStamp(),
-            				currentTime, invProb, isDynamic);
-            
-            // DEBUG
-            //int flippedBitString = addressInformation.getFlippedBitString();
-            //if (flippedBitString != 0)
-            //    System.err.println("Evicted line: flipped string is NOT 0");
+    private <T> T applyError(T value, 
+			     AddressInformation addressInfo, 
+			     TimeTuple currentTimeTuple,
+			     long currentTimeStamp, 
+			     boolean dram) {
 
-            addressInformation.clearFlipped();
-        }
-    }
+	long lastTime    = -1;
+	long currentTime = -1;
+	long invProb     = 0;
+	boolean dynamic  = false;
 
-	/**
-	 * Load, then change (based on some probability), then store value.
-	 * @param lastTime Last relative time stamp to calculate from
-	 * @param currentTime Current time stamp
-	 * @param invProb Inverse probability of error injection
-	 * @param isDynamic If true, dynamic probability of error; else static
-	 * @param key The memory key
-	 * @param <T> Generic type of value
-	 */
-	@SuppressWarnings("unchecked")
-	private <T> void loadChangeStore(AddressInformation addressInfo, long lastTime,
-									 long currentTime, long invProb,
-									 boolean isDynamic) {
-		Object[] objAndSpec = addressInfo.getObjectAndSpecification();
-
-		if (isPrimitive(objAndSpec[1])) { //--Data is from array index
-			int index = ((Integer)objAndSpec[1]).intValue();
-		    T value = (T)Array.get(objAndSpec[0], index);
-		    if (isDynamic) {
-                //--invProb is always the same for dynamic
-                if (PCM_SIMULATION)
-                    value = driftReadPCM((T)value, addressInfo, lastTime,
-                            currentTime);
-                else
-                    value = driftRead(value, lastTime, currentTime); 
-            }
-		    else
-		    	value = bitError(value, invProb);
-            Array.set(objAndSpec[0], index, value);
-            addressInfo.setTimeStamp(currentTime);
-        }
-        else { //--Data is from class field
-            try {
-                Field field = ((Object)objAndSpec[0]).getClass().
-                        getDeclaredField((String)objAndSpec[1]);
-                field.setAccessible(true);
-                Object value = field.get((Object)objAndSpec[0]);
-                if (isDynamic) {
-                    //--invProb is always the same for dynamic
-                    if (PCM_SIMULATION)
-                        value = (Object)driftReadPCM((T)value, addressInfo,
-                                lastTime, currentTime);
-                    else
-                        value = (Object)driftRead((T)value, lastTime,
-                                currentTime); 
-                }
-    		    else
-    		    	value = (Object)bitError((T)value, invProb);
-                field.set((Object)objAndSpec[0], value);
-		        addressInfo.setTimeStamp(currentTime);
-			}
-			catch (NoSuchFieldException e) {
-				System.err.println(String.format("introduceErrorsOnCacheLine:"
-						+ "No field: %s; could not introduce errors...",
-							(String)objAndSpec[1]));
-			}
-			catch (IllegalAccessException e) {
-				System.err.println("introduceErrorsOnCacheLine: "
-						+ "Illegal field access; could not introduce errors...");
-			}
-		}
-	}
-	
-	/**
-	 * Choose error mode for cache lines.
-	 *
-	 * @param currentTimeTuple The current time tuple
-	 * @param currentAddrTag Current address tag
-	 * @param currentTimestamp Current time stamp
-	 * @param currentAinfo The actual address information
-	 * @param evictedTimeTuple Evicted time tuple
-	 * @param evictedAddressTag Evicted address tag
-	 * @param evictionOccurred Whether eviction occurred
-	 */
-	private void chooseErrorModeForCacheLines(TimeTuple currentTimeTuple,
-			final long currentAddrTag, final long currentTimestamp,
-			AddressInformation currentAinfo, TimeTuple evictedTimeTuple,
-			final Long evictedAddressTag, Boolean evictionOccurred) {
-
-        //--The loaded CL
-        if (ALLOW_APPROXIMATE && currentAinfo.approx) {
-	        if (DRAMmode == ErrorModes.DYNAMIC) {
-	        	//--Inject with dynamic errors from DRAM
-                //System.err.println("Loaded"); //DEBUG
-                introduceErrorsOnCacheLine(currentAddrTag, currentTimeTuple.getDramTime(),
-                		currentTimestamp, INVPROB_DRAM_FLIP_PER_SECOND, true); // TODO: add independent SRAM_FLIP_PER_SECOND variable
-	        }
-	        if (SRAMmode == ErrorModes.STATIC) {
-	    		//--Also, inject with write errors in SRAM
-                introduceErrorsOnCacheLine(currentAddrTag, 0, 0, // Any time will do
-                		INVPROB_SRAM_WRITE_FAILURE, false);
-	    	}
-	        currentTimeTuple.setSramTime(currentTimestamp);
-        }
-        
-        //--The evicted CL
-        if (ALLOW_APPROXIMATE && (evictedAddressTag & approxMask) != 0 && evictionOccurred) {
+	/* Select error model */
+	if (dram) {
+	    if (DRAMmode == ErrorModes.DYNAMIC) {
+		lastTime    = currentTimeTuple.getDramTime();
+		currentTime = currentTimeStamp;
+		invProb     = INVPROB_DRAM_FLIP_PER_SECOND;
+		dynamic     = true;
+	    }
+	    if (SRAMmode == ErrorModes.STATIC) {
+		lastTime    = 0;
+		currentTime = 0;
+		invProb     = INVPROB_SRAM_WRITE_FAILURE;
+		dynamic     = false;
+	    }
+	} else {
             switch (SRAMmode) {
             case DYNAMIC:
-                //--Inject with dynamic read errors at SRAM
-            	//--Note: no lastTime sent, as time is computed from respective
-            	//--time stamps
-                //System.err.println("Evicted"); //DEBUG
-                introduceErrorsOnCacheLine(evictedAddressTag,
-                		currentTimestamp, INVPROB_DRAM_FLIP_PER_SECOND, true);
+		lastTime    = addressInfo.getTimeStamp();
+		currentTime = currentTimeStamp;
+		invProb     = INVPROB_DRAM_FLIP_PER_SECOND;
+		dynamic     = true;
                 break;
             case STATIC:
-            	//--Inject with static read errors at SRAM
-            	introduceErrorsOnCacheLine(evictedAddressTag, 0, 0,
-            			INVPROB_SRAM_READ_UPSET, false);
+		lastTime    = 0;
+		currentTime = 0;
+		invProb     = INVPROB_SRAM_READ_UPSET;
+		dynamic     = false;
             	break;
             default:
-                //--NONE: skip error injection (shouldn't be reached)
                 assert false;
                 System.err.println("ERROR: Approximate value reached NONE - check this...");
                 break;
             }
-            evictedTimeTuple.setDramTime(currentTimestamp);
-        }
 	}
 
+	if (dynamic) {
+	    //--invProb is always the same for dynamic
+	    if (PCM_SIMULATION)
+		value = driftReadPCM((T)value, addressInfo, lastTime,
+				     currentTime, addressInfo.getApproximativeBits());
+	    else
+		value = driftRead(value, lastTime, currentTime, addressInfo.getApproximativeBits()); 
+	} else
+	    value = bitError(value, invProb, addressInfo.getApproximativeBits());
+	return value;
+    }
 
     /**
-     * Update last SRAM time stamp on new cache line.
-     *
-     * @param <T> The (generic) return type
-     * @param addrTag The address (tag)
-     * @param currentTime Current time stamp to calculate to
+     * Load, then change (based on some probability), then store value.
+     * @param addressInfo The address of the object to be modified
+     * @param currentTimeTuple Data line of the current memory block
+     * @param currentTime Current time stamp
+     * @param dram True if this is an access to dram (main memory)
+     * @param <T> Generic type of value
      */
-    /*
-    private <T> void updateCacheLineTimeStamp(long addrTag, long currentTime) {
-        //--Introduce errors into the read data if approximate, etc
-        ArrayList<String> cacheline = getFromCacheLineTracker(addrTag);
-        AddressInformation addressInfo;
-        for (String key : cacheline) {
-        	addressInfo = memorySpace.get(key);
-            addressInfo.setTimeStamp(currentTime);
-        }
+    @SuppressWarnings("unchecked")
+    private <T> void loadChangeStore(AddressInformation addressInfo, 
+				     TimeTuple currentTimeTuple, 
+				     long currentTimeStamp, 
+				     boolean dram) {
+	Object[] objAndSpec = addressInfo.getObjectAndSpecification();
+
+	if (isPrimitive(objAndSpec[1])) { //--Data is from array index
+	    int index = ((Integer)objAndSpec[1]).intValue();
+	    T value = (T)Array.get(objAndSpec[0], index);
+	    value = applyError(value, addressInfo, currentTimeTuple, currentTimeStamp, dram);
+            Array.set(objAndSpec[0], index, value);
+            addressInfo.setTimeStamp(currentTimeStamp);
+        } else { //--Data is from class field
+            try {
+                Field field = ((Object)objAndSpec[0]).getClass().
+		    getDeclaredField((String)objAndSpec[1]);
+                field.setAccessible(true);
+                Object value = field.get((Object)objAndSpec[0]);
+		value = (Object)applyError(value, addressInfo, currentTimeTuple, currentTimeStamp, dram);
+                field.set((Object)objAndSpec[0], value);
+		addressInfo.setTimeStamp(currentTimeStamp);
+	    }
+	    catch (NoSuchFieldException e) {
+		System.err.println(String.format("introduceErrorsOnCacheLine:"
+						 + "No field: %s; could not introduce errors...",
+						 (String)objAndSpec[1]));
+	    }
+	    catch (IllegalAccessException e) {
+		System.err.println("introduceErrorsOnCacheLine: "
+				   + "Illegal field access; could not introduce errors...");
+	    }
+	}
     }
-    */
-    
+
     /**
      * Evict a specific cache line from SRAM -> DRAM and write a new cache line
      * in its place. If nothing needs to be evicted, nothing will.
@@ -759,7 +706,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * @return Address tag of the evicted cache line
      */
     private long evictCacheLine(HashMap<Long, TimeTuple> indexAssocLine,
-            TimeTuple currentTimeTuple, long tim, AddressInformation currentAinfo) {
+				TimeTuple currentTimeTuple, long tim, AddressInformation currentAinfo) {
     	final long currentAddrTag = getAddrTag(currentAinfo);
     	long sramTime = 0;
         Long evictedAddressTag = (long)0;
@@ -774,7 +721,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         }
         else { //--Evict oldest and insert loaded CL
             //--Find oldest line currently in the index
-        	long oldestTime = Long.MAX_VALUE;
+	    long oldestTime = Long.MAX_VALUE;
             TimeTuple tmpTuple;
             for (Map.Entry<Long, TimeTuple> entry : indexAssocLine.entrySet()) {
                 tmpTuple = entry.getValue();
@@ -808,9 +755,15 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             runInfo.increaseEvictions(currentTimeTuple.approx, evictedTimeTuple.approx);
         }
 
-        chooseErrorModeForCacheLines(currentTimeTuple, currentAddrTag, tim,
-				currentAinfo, evictedTimeTuple, evictedAddressTag,
-				evictionOccurred);
+	/* Loaded cacheline from DRAM */
+	introduceErrorsOnCacheLine(currentTimeTuple, currentAddrTag, tim, true);
+	currentTimeTuple.setSramTime(tim);
+	
+	/* Evicted cache line */
+	if (evictionOccurred) {
+	    introduceErrorsOnCacheLine(currentTimeTuple, evictedAddressTag, tim, false);
+	    evictedTimeTuple.setDramTime(tim);
+	}
         
         return evictedAddressTag;
     }
@@ -838,28 +791,32 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         
         //--Count this memory operation
         if (store) {
+	    runInfo.countOperation("Store", addressInfo.approx, addressInfo.getApproximativeBits());
+
             runInfo.increaseStores(addressInfo.approx);
             runInfo.increaseStoredQytes(addressInfo.approx,
-                addressInfo.getSize());
+					addressInfo.getSize());
             if (debug) System.err.print("Load - ");
         }
         else {
+	    runInfo.countOperation("Load", addressInfo.approx, addressInfo.getApproximativeBits());
+
             runInfo.increaseLoads(addressInfo.approx);
             runInfo.increaseLoadedQytes(addressInfo.approx,
-                addressInfo.getSize());
+					addressInfo.getSize());
             if (debug) System.err.print("Store - ");
         }
         if (debug) {
             System.err.println(String.format("%d: %s, %d qytes",
-                addressInfo.getAddress(), addressInfo.approx ? "approx" : "precise",
-                addressInfo.getSize()));
+					     addressInfo.getAddress(), addressInfo.approx ? "approx" : "precise",
+					     addressInfo.getSize()));
         }
         
         //--Compute useful variants of the memory block address
         final long addrNoByteOffset = addressInfo.getAddress()
-        		>> offsetBits; // Full cache line address (minus byte offset)        
+	    >> offsetBits; // Full cache line address (minus byte offset)        
         final long addrNoWordOffset = addrNoByteOffset // Full cache line address (minus byte + word offset)
-                >> nApproxWordsPerLineBits;
+	    >> nApproxWordsPerLineBits;
         final long addrIndex = addrNoWordOffset % nIndexes; // Compute cache index
         final long addrTag = getAddrTag(addressInfo);
         
@@ -867,24 +824,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         HashMap<Long, TimeTuple> indexAssocLine = sramContainer.get((int)addrIndex);
         Boolean evictionOccurred = false;
         if (indexAssocLine.containsKey(addrTag)) { // Tag exists in cache: update
-            if (ALLOW_APPROXIMATE && addressInfo.approx) {
-                switch (SRAMmode) {
-                case DYNAMIC:
-                    loadChangeStore(addressInfo, addressInfo.getTimeStamp(),
-                    		currentTime, INVPROB_DRAM_FLIP_PER_SECOND, true);
-                    break;
-                case STATIC:
-                    loadChangeStore(addressInfo, 0, currentTime,
-                        	(store ? INVPROB_SRAM_WRITE_FAILURE : INVPROB_SRAM_READ_UPSET), false);
-                    break;
-                case NONE:
-                    // TODO #general: Can we use this state instead of "ALLOW_APPROXIMATE"?
-                    System.err.println("memoryOp: NONE state reached in approximative context");
-                    break;
-                default:
-                    assert false;
-                    System.err.println("memoryOp: Non-reachable state reached");
-                }
+            if (ALLOW_APPROXIMATE && addressInfo.getApproximativeBits()!=0) {
+		// Hit in cache so we are not accessing dram, last argument is false
+		// The TimeTuple is only needed for dram accesses so can use null
+		loadChangeStore(addressInfo, null, currentTime, false);
             }
             TimeTuple lineInSRAM = indexAssocLine.get(addrTag);
             lineInSRAM.setLruTime(currentTime);
@@ -901,19 +844,19 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         return evictionOccurred;
     }
 
-	/**
-	 * Get the address tag from an address. Approximate tags will have the
-	 * approx bit set.
-	 *
-	 * @param ainfo The address info
-	 * @return The address tag
-	 */
-	private long getAddrTag(AddressInformation ainfo) {
-		long addrTag = ainfo.getAddress() & tagMask; // Compute address tag
+    /**
+     * Get the address tag from an address. Approximate tags will have the
+     * approx bit set.
+     *
+     * @param ainfo The address info
+     * @return The address tag
+     */
+    private long getAddrTag(AddressInformation ainfo) {
+	long addrTag = ainfo.getAddress() & tagMask; // Compute address tag
         if (ainfo.approx)
             addrTag |= approxMask; // If approximate: set approximation bit (MSB)
-		return addrTag;
-	}
+	return addrTag;
+    }
 
     /**
      * Print all steps of handling memory addresses in their binary form
@@ -925,17 +868,17 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * @param addrTag Comuted address tag
      */
     /*
-    private void debug_printBinaryRepresentations(AddressInformation ainfo,
-            long address, long addrNoByteOffset, long addrNoWordOffset,
-            long addrIndex, long addrTag) {
-        System.err.println(ainfo.approx ? "Approx " : "Precise ");
-        System.err.println(
-            "address:\t\t"+ address + "\t" + Long.toBinaryString(address) + "\n"
-            + "addrNoByteOffset:\t" + addrNoByteOffset + "\t" + Long.toBinaryString(addrNoByteOffset)  + "\n" 
-            + "addrNoWordOffset:\t" + addrNoWordOffset + "\t" + Long.toBinaryString(addrNoWordOffset) + "\n"
-            + "addrIndex:\t\t" + addrIndex + "\t" + Long.toBinaryString(addrIndex) + "\n"
-            + "addrTag:\t\t" + addrTag + "\t" + Long.toBinaryString(addrTag));
-    }
+      private void debug_printBinaryRepresentations(AddressInformation ainfo,
+      long address, long addrNoByteOffset, long addrNoWordOffset,
+      long addrIndex, long addrTag) {
+      System.err.println(ainfo.approx ? "Approx " : "Precise ");
+      System.err.println(
+      "address:\t\t"+ address + "\t" + Long.toBinaryString(address) + "\n"
+      + "addrNoByteOffset:\t" + addrNoByteOffset + "\t" + Long.toBinaryString(addrNoByteOffset)  + "\n" 
+      + "addrNoWordOffset:\t" + addrNoWordOffset + "\t" + Long.toBinaryString(addrNoWordOffset) + "\n"
+      + "addrIndex:\t\t" + addrIndex + "\t" + Long.toBinaryString(addrIndex) + "\n"
+      + "addrTag:\t\t" + addrTag + "\t" + Long.toBinaryString(addrTag));
+      }
     */
 
     /**
@@ -961,7 +904,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     }
 
     /* (TRICK TO DIVIDE NOISY FROM DEFAULT)
-     * (THIS DOESN'T COVER FOR MERGED, I.E. PREVIOUSLY OVERRIDEN, METHODS)
+     * (THIS DOESN'T COVER FOR MERGED, I.E., PREVIOUSLY OVERRIDEN, METHODS)
      */
     /***************************************************************************
     ****************************************************************************
@@ -1076,7 +1019,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 
     private long toBits(Object value) {
         if (value instanceof Byte || value instanceof Short ||
-                value instanceof Integer || value instanceof Long) {
+	    value instanceof Integer || value instanceof Long) {
             return ((Number)value).longValue();
         } else if (value instanceof Float) {
             return Float.floatToRawIntBits((Float)value);
@@ -1127,29 +1070,26 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * @return The value, possibly injected with errors
      */
     @SuppressWarnings("unchecked")
-	private <T> T bitError(T value, long invProb) {
+    private <T> T bitError(T value, long invProb, int approximativeBits) {
     	if (!isPrimitive(value))
             return value;
     	
         long bits = toBits(value);
-//        System.err.print("[Before: " + bits);
         int width = numQytes(value);
+	boolean error = false;
 
         // Inject errors.
-        long mask;
-        for (int bitpos = 0; bitpos < (width << 3); ++bitpos) {
-            mask = 1 << bitpos;
+        for (int bitpos = 0; (bitpos<(width<<3)) && (bitpos<approximativeBits); ++bitpos) {
             double randNum = Math.random();
-//            System.err.print(" (randNum: " + randNum + ""
-//            		+ "randNum * invProb: " + randNum * invProb 
-//            		+ "(long)(randNum * invProb): " + (long)(randNum * invProb)
-//            		+ ") "); //DEBUG
             if ((long)(randNum * invProb) == 0) {
-                // Bit error!
+		error = true;
+		runInfo.countError("MemoryError_Bit" + bitpos, true, approximativeBits);
+		long mask = 1 << bitpos;
             	bits ^= mask;
             }
         }
-//        System.err.println("; after: " + bits + "]");
+	if (error)
+	    runInfo.countOperation("MemoryTotalError", true, approximativeBits);
 
         return (T) fromBits(bits, value);
     }
@@ -1164,7 +1104,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @SuppressWarnings("unchecked")
     private <T> T bitErrorPCM(T value, AddressInformation aInfo,
-            long age) {
+			      long age, int approximativeBits) {
     	if (!isPrimitive(value))
             return value;
     	
@@ -1178,7 +1118,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         double S2ErrorRate = 1/(.01*S2ErrorRateLookup[index]);
         double S3ErrorRate = 1/(.01*S3ErrorRateLookup[index]);
 
-        for (int flipbitpos=0; flipbitpos < (width*8)>>1; flipbitpos++) { 
+        for (int flipbitpos=0; (flipbitpos<(width*8)>>1) && (flipbitpos<approximativeBits); flipbitpos++) { 
             if (!aInfo.isFlipped(flipbitpos)) {
                 int valuebitpos = 2*flipbitpos;
                 if (((bits >> valuebitpos) & 3) == 1) { // Cell is state S3
@@ -1210,10 +1150,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     private boolean isPrimitive(Object o) {
         return (
-            o instanceof Number ||
-            o instanceof Boolean ||
-            o instanceof Character
-        );
+		o instanceof Number ||
+		o instanceof Boolean ||
+		o instanceof Character
+		);
     }
 
     /**
@@ -1222,7 +1162,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * @param lastTime The last time stamp to compute from
      * @param currentTime Current time stamp for reference
      */
-    private <T> T driftRead(T value, long lastTime, long currentTime) {
+    private <T> T driftRead(T value, long lastTime, long currentTime, int approximativeBits) {
     	// TODO #blockerrors Keep/change "DISABLED" flags?
     	if (!isPrimitive(value) || INVPROB_DRAM_FLIP_PER_SECOND == DISABLED) {
             return value;
@@ -1236,7 +1176,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         
         // Error injection
         long invprob = INVPROB_DRAM_FLIP_PER_SECOND * 1000L / age;
-        value = bitError(value, invprob);
+        value = bitError(value, invprob, approximativeBits);
 
         return value;
     }
@@ -1250,7 +1190,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * @param currentTime Current time stamp for reference
      */
     private <T> T driftReadPCM(T value, AddressInformation aInfo,
-            long lastTime, long currentTime) {
+			       long lastTime, long currentTime, int approximativeBits) {
     	if (!isPrimitive(value)) {
             return value;
         }
@@ -1262,7 +1202,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         }
         
         // Error injection
-        value = bitErrorPCM(value, aInfo, age);
+        value = bitErrorPCM(value, aInfo, age, approximativeBits);
 
         return value;
     }
@@ -1298,7 +1238,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             catch (NoSuchFieldException e) {
                 if (debug)
                     System.err.println("Field " + field + " not found in "
-                        + objClass.getName() + "; trying superclass...");
+				       + objClass.getName() + "; trying superclass...");
                 objClass = objClass.getSuperclass();
                 continue;
             }
@@ -1337,16 +1277,16 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         if (fr != null) {
             try {
             	JSONObject json = new JSONObject(new JSONTokener(fr));
-				INVPROB_SRAM_WRITE_FAILURE =
-					json.getLong("INVPROB_SRAM_WRITE_FAILURE");
-				INVPROB_SRAM_READ_UPSET =
-					json.getLong("INVPROB_SRAM_READ_UPSET");
-				MB_FLOAT_APPROX = json.getInt("MB_FLOAT_APPROX");
-				MB_DOUBLE_APPROX = json.getInt("MB_DOUBLE_APPROX");
-				INVPROB_DRAM_FLIP_PER_SECOND =
-					json.getLong("INVPROB_DRAM_FLIP_PER_SECOND");
-				TIMING_ERROR_MODE = json.getInt("TIMING_ERROR_MODE");
-				TIMING_ERROR_PROB_PERCENT =
+		INVPROB_SRAM_WRITE_FAILURE =
+		    json.getLong("INVPROB_SRAM_WRITE_FAILURE");
+		INVPROB_SRAM_READ_UPSET =
+		    json.getLong("INVPROB_SRAM_READ_UPSET");
+		MB_FLOAT_APPROX = json.getInt("MB_FLOAT_APPROX");
+		MB_DOUBLE_APPROX = json.getInt("MB_DOUBLE_APPROX");
+		INVPROB_DRAM_FLIP_PER_SECOND =
+		    json.getLong("INVPROB_DRAM_FLIP_PER_SECOND");
+		TIMING_ERROR_MODE = json.getInt("TIMING_ERROR_MODE");
+		TIMING_ERROR_PROB_PERCENT =
                     (float)json.getDouble("TIMING_ERROR_PROB_PERCENT");
             } catch (JSONException exc) {
                 System.err.println("   JSON not readable!");
@@ -1357,26 +1297,26 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         //--Hack-ish way to read from properties while still preserving other
         //--values if none set
         INVPROB_SRAM_WRITE_FAILURE
-        	= Long.parseLong(System.getProperty("INVPROB_SRAM_WRITE_FAILURE",
-        		Long.toString(INVPROB_SRAM_WRITE_FAILURE)));
+	    = Long.parseLong(System.getProperty("INVPROB_SRAM_WRITE_FAILURE",
+						Long.toString(INVPROB_SRAM_WRITE_FAILURE)));
         INVPROB_SRAM_READ_UPSET
-        	= Long.parseLong(System.getProperty("INVPROB_SRAM_READ_UPSET",
-        		Long.toString(INVPROB_SRAM_READ_UPSET)));
+	    = Long.parseLong(System.getProperty("INVPROB_SRAM_READ_UPSET",
+						Long.toString(INVPROB_SRAM_READ_UPSET)));
         MB_FLOAT_APPROX
-        	= Integer.parseInt(System.getProperty("MB_FLOAT_APPROX",
-        		Integer.toString(MB_FLOAT_APPROX)));
+	    = Integer.parseInt(System.getProperty("MB_FLOAT_APPROX",
+						  Integer.toString(MB_FLOAT_APPROX)));
         MB_DOUBLE_APPROX
-    		= Integer.parseInt(System.getProperty("MB_DOUBLE_APPROX",
-    			Integer.toString(MB_DOUBLE_APPROX)));
+	    = Integer.parseInt(System.getProperty("MB_DOUBLE_APPROX",
+						  Integer.toString(MB_DOUBLE_APPROX)));
         INVPROB_DRAM_FLIP_PER_SECOND
-        	= Long.parseLong(System.getProperty("INVPROB_DRAM_FLIP_PER_SECOND",
-            	Long.toString(INVPROB_DRAM_FLIP_PER_SECOND)));
+	    = Long.parseLong(System.getProperty("INVPROB_DRAM_FLIP_PER_SECOND",
+						Long.toString(INVPROB_DRAM_FLIP_PER_SECOND)));
         TIMING_ERROR_MODE
-			= Integer.parseInt(System.getProperty("TIMING_ERROR_MODE",
-				Integer.toString(TIMING_ERROR_MODE)));
+	    = Integer.parseInt(System.getProperty("TIMING_ERROR_MODE",
+						  Integer.toString(TIMING_ERROR_MODE)));
         TIMING_ERROR_PROB_PERCENT
-	        = Float.parseFloat(System.getProperty("TIMING_ERROR_PROB_PERCENT",
-					Float.toString(TIMING_ERROR_PROB_PERCENT)));
+	    = Float.parseFloat(System.getProperty("TIMING_ERROR_PROB_PERCENT",
+						  Float.toString(TIMING_ERROR_PROB_PERCENT)));
 
         System.err.println("\tSRAM WF: " + INVPROB_SRAM_WRITE_FAILURE);
         System.err.println("\tSRAM RU: " + INVPROB_SRAM_READ_UPSET);
@@ -1442,8 +1382,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                 }
             } catch (JSONException exc) {
                 System.err.println("   Adder_8_JSON not readable!");
-             }
-         }
+	    }
+	}
 
         //Loading the addition_16 error data
         ar = null;
@@ -1465,7 +1405,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             }
         }
 
-         //Loading the addition_24 error data
+	//Loading the addition_24 error data
         ar = null;
         try {
             ar = new FileReader(ADDER_NOISE_FILE_24);
@@ -1619,16 +1559,16 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         }
 
 	/*
-        if(ADDITION_TOTAL == 0){
-            System.err.println("   ADDITION_NOISE: DISABLED");
-        }
-        else{
-            System.err.println("   ADDITION_NOISE: ENABLED");
-            for(int i = 0; i<32; i++){
-                System.err.println("   Bit" + (i+1) + ": " + ADDITION_ERRORS[i]);
-            }
-            System.err.println("  Each bit divided by: " + ADDITION_TOTAL);
-        }
+	  if(ADDITION_TOTAL == 0){
+	  System.err.println("   ADDITION_NOISE: DISABLED");
+	  }
+	  else{
+	  System.err.println("   ADDITION_NOISE: ENABLED");
+	  for(int i = 0; i<32; i++){
+	  System.err.println("   Bit" + (i+1) + ": " + ADDITION_ERRORS[i]);
+	  }
+	  System.err.println("  Each bit divided by: " + ADDITION_TOTAL);
+	  }
 	*/
     }
 
@@ -1712,11 +1652,20 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public PhantomReference<Object> setApproximate(
-        Object o, boolean approx, boolean heap, int preciseSize, int approxSize, int approximativeBits
-    ) {
+						   Object o, 
+						   boolean approx, 
+						   boolean heap, 
+						   int preciseSize, 
+						   int approxSize, 
+						   int approximativeBits
+						   ) {
+	if (approx && approximativeBits == 0)
+	    System.out.println("approximativeBits set to 0");
+	//	System.out.println( (approx ? "Approx" : "Precise") + " Bits: " + approximativeBits);
+
         if (debug) {
             System.out.println("EnerJ: Add object " + System.identityHashCode(o)
-                + " to system.");
+			       + " to system.");
             
             // if (o instanceof Reference) {
             //     @SuppressWarnings("unchecked")
@@ -1753,8 +1702,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     public boolean isApproximate(Object o) {
         if (debug) {
             System.out.println("EnerJ: Determine whether \"" 
-                + (o != null ? System.identityHashCode(o) : "null")
-                + "\" is approximate");
+			       + (o != null ? System.identityHashCode(o) : "null")
+			       + "\" is approximate");
         }
         boolean approx;
         synchronized (this) { // If it's approximate, then it must be in the 'info' hashmap
@@ -1801,20 +1750,20 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 
     private int mapApproximativeBits(AnnotationType annotation) {
         switch (annotation) {
-            case Approx:
-                return 32;
-            case Approx0:
-                return 0;
-            case Approx8:
-                return 8;
-            case Approx16:
-                return 16;
-            case Approx24:
-                return 24;
-            default:
-                // Verify approximativeness before calling this method
-                assert false;
-                return 0;
+	case Approx:
+	    return 32;
+	case Approx0:
+	    return 0;
+	case Approx8:
+	    return 8;
+	case Approx16:
+	    return 16;
+	case Approx24:
+	    return 24;
+	default:
+	    // Verify approximativeness before calling this method
+	    assert false;
+	    return 0;
         }
     }
 
@@ -1824,7 +1773,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * @param fileName Name of the JSON file to be imported
      */
     @SuppressWarnings("unchecked")
-	private void importClassInfoAndInsertStaticData(String fileName) {
+    private void importClassInfoAndInsertStaticData(String fileName) {
         JSONObject jsonClasses, jsonFields, jsonField;
         HashMap<String, FieldInfoContainer> fieldsInfo = null;
         FieldInfoContainer fic;
@@ -1845,13 +1794,13 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                 jsonFields = jsonClasses.getJSONObject(keyClass);
                 fieldsInfo = new HashMap<String, FieldInfoContainer>();
                 for (Iterator<String> itField = jsonFields.keys();
-                        itField.hasNext();) {
+		     itField.hasNext();) {
                     fic = new FieldInfoContainer();
                     String keyField = itField.next();
                     jsonField = jsonFields.getJSONObject(keyField);
                     fic.annotation = ALLOW_APPROXIMATE ?
-                            mapAnnotationType(jsonField.getString("annotation")) :
-                                AnnotationType.Precise;
+			mapAnnotationType(jsonField.getString("annotation")) :
+			AnnotationType.Precise;
                     fic.isStatic = jsonField.getBoolean("static");
                     fic.isFinal = jsonField.getBoolean("final");
                     fic.fieldType = jsonField.getString("type");
@@ -1884,8 +1833,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 			} else
                             preciseSize = fieldSize;
                         AddressInformation addressInfo =
-                                new AddressInformation(tim, approx, true, preciseSize,
-                                        approxSize, approximativeBits, address, startup-1); // -1: Trick to force oldest possible time stamp
+			    new AddressInformation(tim, approx, true, preciseSize,
+						   approxSize, approximativeBits, address, startup-1); // -1: Trick to force oldest possible time stamp
                         // TODO #bug: How to set static objects?
                         String key = STATIC_STRING + keyField; // Workaround...
                         memorySpace.put(key, addressInfo);
@@ -1914,23 +1863,23 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     private void startCleanUpThreads() {
         final Thread deallocPollThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                // Loop that continuously removes items from PhantomReference queue
-                deallocPoll(); 
-            }
-        });
+		@Override
+		public void run() {
+		    // Loop that continuously removes items from PhantomReference queue
+		    deallocPoll(); 
+		}
+	    });
         deallocPollThread.setDaemon(true); // Automatically shut down.
         deallocPollThread.start();
 
         // Perform cleanup operations when JVM shuts down
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-            @Override
-            public void run() {
-                cleanUpObjects();
-                dumpCounts();
-            }
-        }));
+		@Override
+		public void run() {
+		    cleanUpObjects();
+		    dumpCounts();
+		}
+	    }));
     }
 
     public PrecisionRuntimeTolop(int cacheSize,
@@ -1962,7 +1911,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         if (sramAssociativity < 0 || sramAssociativity != 1 && sramAssociativity % 2 != 0) {
             System.err.println("Unallowed associativity");
             System.err.println("Cache associativity value must be positive and "
-                    + "direct mapped or a multiple of 2");
+			       + "direct mapped or a multiple of 2");
             System.exit(1);
         }
         
@@ -1972,9 +1921,9 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 
         if (debug) {
             System.out.println(String.format("cacheSize: %d\ncacheLineSize: %d\n"+
-                    "sramAssociativity: %d\nnIndexes: %d\nnApproxWordsPerLineBits: %d\n",
-                    cacheSize, cacheLineSizeInWords, sramAssociativity,
-                    nIndexes, nApproxWordsPerLineBits));
+					     "sramAssociativity: %d\nnIndexes: %d\nnApproxWordsPerLineBits: %d\n",
+					     cacheSize, cacheLineSizeInWords, sramAssociativity,
+					     nIndexes, nApproxWordsPerLineBits));
         }
         
         // Array for cache lines; inner hash map for the n different associative ways
@@ -2008,25 +1957,25 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         // What sort of errors will the memory suffer from?
         String SRAMMod = System.getProperty("SRAMMode", "dynamic").toLowerCase();
         switch (SRAMMod) {
-		case "static":
-			SRAMmode = ErrorModes.STATIC;
-			break;
-		case "none":
-			SRAMmode = ErrorModes.NONE; // Force anything else as dynamic
-		default:
-			SRAMmode = ErrorModes.DYNAMIC; // Any "erroneous" value yields dynamic
-			break;
-		}
+	case "static":
+	    SRAMmode = ErrorModes.STATIC;
+	    break;
+	case "none":
+	    SRAMmode = ErrorModes.NONE; // Force anything else as dynamic
+	default:
+	    SRAMmode = ErrorModes.DYNAMIC; // Any "erroneous" value yields dynamic
+	    break;
+	}
         
         // DRAM shouldn't suffer from static errors
         String DRAMMod = System.getProperty("DRAMMode", "dynamic").toLowerCase();
         switch (DRAMMod) {
-		case "none":
-			DRAMmode = ErrorModes.NONE; // Force anything as dynamic
-		default:
-			DRAMmode = ErrorModes.DYNAMIC; // Any "erroneous" value yields dynamic
-			break;
-		}
+	case "none":
+	    DRAMmode = ErrorModes.NONE; // Force anything as dynamic
+	default:
+	    DRAMmode = ErrorModes.DYNAMIC; // Any "erroneous" value yields dynamic
+	    break;
+	}
 
         // PCM specific simulation
         String PCMSimulation = System.getProperty("PCMSimulation", "false").toLowerCase();
@@ -2053,9 +2002,9 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         startCleanUpThreads();
 
 	if (ALLOW_APPROXIMATE)
-		doNoisyConstructorThings();
+	    doNoisyConstructorThings();
 	else
-        	System.err.println("Initializing precise EnerJ runtime - approximativeness disabled.");
+	    System.err.println("Initializing precise EnerJ runtime - approximativeness disabled.");
     }
 
     /**
@@ -2080,15 +2029,15 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     public PrecisionRuntimeTolop(String classInfoFilename) {
         this(Integer.parseInt(System.getProperty("CacheSize", "2048")), // In qytes, not bytes
-                Integer.parseInt(System.getProperty("CacheLineSize", "16")), // Quad-words, not byte-words
-                        Integer.parseInt(System.getProperty("CacheAssociativity", "4")), //Default: 4-way
-                            classInfoFilename);
+	     Integer.parseInt(System.getProperty("CacheLineSize", "16")), // Quad-words, not byte-words
+	     Integer.parseInt(System.getProperty("CacheAssociativity", "4")), //Default: 4-way
+	     classInfoFilename);
         System.err.println(String.format("CacheSize: %d, CacheLineSize: %d, "
-                    + "CacheAssociativity: %d",
-                    Integer.parseInt(System.getProperty("CacheSize", "2048")),
-                    Integer.parseInt(System.getProperty("CacheLineSize", "16")),
-                    Integer.parseInt(System.getProperty("CacheAssociativity", "4"))
-                    )); //DEBUG
+					 + "CacheAssociativity: %d",
+					 Integer.parseInt(System.getProperty("CacheSize", "2048")),
+					 Integer.parseInt(System.getProperty("CacheLineSize", "16")),
+					 Integer.parseInt(System.getProperty("CacheAssociativity", "4"))
+					 )); //DEBUG
     }
 
     /**
@@ -2116,20 +2065,20 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             Field[] theFields = createdClass.getDeclaredFields();
             for (Field someField : theFields) {
                 unSortedClassFieldTups.put(
-                		new MyTuple<String,Field>(createdClass.getName(), someField),
-                        prioritizeType(someField.getType().getName()));
+					   new MyTuple<String,Field>(createdClass.getName(), someField),
+					   prioritizeType(someField.getType().getName()));
             }
             createdClass = createdClass.getSuperclass();    // Traverse unto superclass
         }
         List<Map.Entry<MyTuple<String, Field>, Integer>> sortedClassFields =
-                new LinkedList<Map.Entry<MyTuple<String, Field>, Integer>>(unSortedClassFieldTups.entrySet());
+	    new LinkedList<Map.Entry<MyTuple<String, Field>, Integer>>(unSortedClassFieldTups.entrySet());
         Collections.sort(sortedClassFields, new Comparator<Map.Entry<MyTuple<String, Field>, Integer>>() {
-            @Override
-            public int compare(Entry<MyTuple<String, Field>, Integer> obj1,
-                    Entry<MyTuple<String, Field>, Integer> obj2) {
-                return (obj2.getValue()).compareTo(obj1.getValue());
-            }
-        });
+		@Override
+		public int compare(Entry<MyTuple<String, Field>, Integer> obj1,
+				   Entry<MyTuple<String, Field>, Integer> obj2) {
+		    return (obj2.getValue()).compareTo(obj1.getValue());
+		}
+	    });
         
         return sortedClassFields;
     }
@@ -2168,23 +2117,25 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         return peekAddress(approx);
     }
 
-    private boolean fieldIsApprox(FieldInfoContainer fic,  CreationInfo c) {
-        if (ALLOW_APPROXIMATE) {
-            switch (fic.annotation) {
-                case Approx:
-                    return true;
-                case Precise:
-                    return false;
-                default: // Context
-                    return c.approx;
-                }
-        }
-        return false; // Force to always be precise
-    }
+    /*
+      private boolean fieldIsApprox(FieldInfoContainer fic,  CreationInfo c) {
+      if (ALLOW_APPROXIMATE) {
+      switch (fic.annotation) {
+      case Approx:
+      return true;
+      case Precise:
+      return false;
+      default: // Context
+      return c.approx;
+      }
+      }
+      return false; // Force to always be precise
+      }
+    */
 
     private synchronized void addClassFieldsToMemory(
-	        List<Map.Entry<MyTuple<String, Field>, Integer>> sortedClassFields,
-	        CreationInfo c, Object created) {
+						     List<Map.Entry<MyTuple<String, Field>, Integer>> sortedClassFields,
+						     CreationInfo c, Object created) {
     	HashMap<String, FieldInfoContainer> fieldsInfo;
     	FieldInfoContainer fic;
         boolean approx;
@@ -2225,8 +2176,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             //--there's no reason to continue: crash and burn!
             if (!fieldsInfo.containsKey(fieldname)) {
                 System.err.println("Class " + className
-                    + " doesn't contain field " + fieldname
-                    + "; please check the inout JSON file.");
+				   + " doesn't contain field " + fieldname
+				   + "; please check the inout JSON file.");
                 System.err.println("fieldsInfo: " + fieldsInfo.toString());
                 System.exit(1);
             }
@@ -2239,35 +2190,35 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 	     */
             if (ALLOW_APPROXIMATE) {
                 switch (fic.annotation) {
-                    case Approx:
-                        approx = true;
-                        approximativeBits = 32;
-                        break;
-                    case Approx0:
-                        approx = false;
-                        approximativeBits = 0;
-                        break;
-                    case Approx8:
-                        approx = false;
-                        approximativeBits = 8;
-                        break;
-                    case Approx16:
-                        approx = false;
-                        approximativeBits = 16;
-                        break;
-                    case Approx24:
-                        approx = false;
-                        approximativeBits = 24;
-                        break;
-                    case Precise:
-                        approx = false;
-                        approximativeBits = 0;
-                        break;
-                    default: // Context
-                        approx = c.approx;
-                        approximativeBits = c.approximativeBits;
-                        break;
-                    }
+		case Approx:
+		    approx = true;
+		    approximativeBits = 32;
+		    break;
+		case Approx0:
+		    approx = false;
+		    approximativeBits = 0;
+		    break;
+		case Approx8:
+		    approx = false;
+		    approximativeBits = 8;
+		    break;
+		case Approx16:
+		    approx = false;
+		    approximativeBits = 16;
+		    break;
+		case Approx24:
+		    approx = false;
+		    approximativeBits = 24;
+		    break;
+		case Precise:
+		    approx = false;
+		    approximativeBits = 0;
+		    break;
+		default: // Context
+		    approx = c.approx;
+		    approximativeBits = c.approximativeBits;
+		    break;
+		}
             }
             else {
                 approx = false; // Force to always be precise
@@ -2290,14 +2241,15 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             
             //--Register allocated memory
             ainfo = new AddressInformation(tim, approx, true, preciseSize,
-					   approxSize, approximativeBits, address, startup-1); // -1: Trick to force oldest possible time stamp
+					   approxSize, approximativeBits,
+					   address, startup-1); // -1: Trick to force oldest possible time stamp
             ainfo.setType(created, fieldname);
             memorySpace.put(key, ainfo);
             if (debug) {
                 System.out.println(
-                      "\t" + Modifier.toString(e.getKey().y.getModifiers())
-                    + " " + e.getKey().y.getType().getName()
-                    + " " + fieldname); //DEBUG
+				   "\t" + Modifier.toString(e.getKey().y.getModifiers())
+				   + " " + e.getKey().y.getType().getName()
+				   + " " + fieldname); //DEBUG
             }
         }
     }
@@ -2319,9 +2271,9 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         System.err.println("beforeCreation: " + approximativeBits);
         if (debug) {
             System.out.println("EnerJ: before creator \""
-                    + System.identityHashCode(creator)
-                    + "\" creates new " + (approx ? "approximate" : "precise")
-                    + " object of sizes P" + preciseSize + "/A" + approxSize);
+			       + System.identityHashCode(creator)
+			       + "\" creates new " + (approx ? "approximate" : "precise")
+			       + " object of sizes P" + preciseSize + "/A" + approxSize);
             // Creator happens often (almost) always to be 'java.lang.Thread' 
             debugCounters.get("beforeCounter").incrementAndGet(); // DEBUG
         }
@@ -2360,7 +2312,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     public boolean enterConstructor(Object created) {
         if (debug) {
             System.out.println("EnerJ: enter constructor for object \""
-                + System.identityHashCode(created) + "\"");
+			       + System.identityHashCode(created) + "\"");
             System.out.println("\t" + created.getClass().getName());
             debugCounters.get("enterCounter").incrementAndGet(); // DEBUG
         }
@@ -2371,8 +2323,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         if (stack==null) {
             if (debug) {
                 System.out.println("EnerJ: enter constructor for object \""
-                    + System.identityHashCode(created)
-                    + "\" found a null stack.");
+				   + System.identityHashCode(created)
+				   + "\" found a null stack.");
             }
             // probably instantiated from non-EnerJ code
             return false;
@@ -2380,8 +2332,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         if (stack.size()<=0) {
             if (debug) {
                 System.out.println("EnerJ: enter constructor for object \""
-                    + System.identityHashCode(created)
-                    + "\" found an empty stack.");
+				   + System.identityHashCode(created)
+				   + "\" found an empty stack.");
             }
             // probably instantiated from non-EnerJ code
             return false;
@@ -2416,9 +2368,9 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     public boolean afterCreation(Object creator, Object created) {
         if (debug) {
             System.out.println("EnerJ: after creator \"" + System.identityHashCode(creator)
-                    + "\" created new object \"" + System.identityHashCode(created) + "\"");
+			       + "\" created new object \"" + System.identityHashCode(created) + "\"");
             System.out.println(String.format("EnerJ: %s -> %s",
-                    creator.getClass().getName(), created.getClass().getName())); //DEBUG
+					     creator.getClass().getName(), created.getClass().getName())); //DEBUG
             debugCounters.get("afterCounter").incrementAndGet(); //DEBUG
         }
 
@@ -2429,10 +2381,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         if (stack.size()<=0) {
             if (debug) {
                 System.out.println("EnerJ: after creator \""
-                        + System.identityHashCode(creator)
-                        + "\" created new object \""
-                        + System.identityHashCode(created)
-                        + "\" found an empty stack.");
+				   + System.identityHashCode(creator)
+				   + "\" created new object \""
+				   + System.identityHashCode(created)
+				   + "\" found an empty stack.");
             }
             // no worries, the stack must have been emptied in enterConstructor
             return false;
@@ -2448,10 +2400,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         } else {
             if (debug) {
                 System.out.println("EnerJ: after creator \""
-                        + System.identityHashCode(creator)
-                        + "\" created new object \""
-                        + System.identityHashCode(created)
-                        + "\" found mismatched creator \"" + c.creator + "\".");
+				   + System.identityHashCode(creator)
+				   + "\" created new object \""
+				   + System.identityHashCode(created)
+				   + "\" found mismatched creator \"" + c.creator + "\".");
             }
             // if the creators do not match, the entry was already removed.
         }
@@ -2459,8 +2411,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         // DEBUG
         if (debug) {
             System.out.println(
-                    String.format("afterCreation: %s: preciseSize = %d - approxSize = %d",
-                            created.getClass().getName(), c.preciseSize, c.approxSize));
+			       String.format("afterCreation: %s: preciseSize = %d - approxSize = %d",
+					     created.getClass().getName(), c.preciseSize, c.approxSize));
             if (c.preciseSize != 0 && c.approxSize !=0) { // Mixed setting - interesting
                 System.out.println("Note: both precise/approx values present");
             }
@@ -2469,7 +2421,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             Field[] allFields = created.getClass().getDeclaredFields();
             for (Field f : allFields) {
                 System.out.println("\t" + Modifier.toString(f.getModifiers())
-                    + " " + f.getType().getName() + " " + f.getName()); //DEBUG
+				   + " " + f.getType().getName() + " " + f.getName()); //DEBUG
             }
         }
 
@@ -2547,8 +2499,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 
         if (debug) {
             System.out.println("EnerJ: created array \"" +
-                System.identityHashCode(created) +
-                "\" with size " + elems);
+			       System.identityHashCode(created) +
+			       "\" with size " + elems);
             debugCounters.get("insertedArraysCounter").incrementAndGet();
         }
 
@@ -2612,9 +2564,9 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             stringer.object();
             for (String sec : footprints) {
                 long approxAmt = approxFootprint.containsKey(sec) ?
-                                 approxFootprint.get(sec) : 0;
+		    approxFootprint.get(sec) : 0;
                 long preciseAmt = preciseFootprint.containsKey(sec) ?
-                                  preciseFootprint.get(sec) : 0;
+		    preciseFootprint.get(sec) : 0;
 
                 stringer.key(sec);
                 stringer.array();
@@ -2635,16 +2587,16 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             System.out.println(out);
             for (Map.Entry<String,AtomicInteger> entry : debugCounters.entrySet()) { //DEBUG
                 System.out.println(String.format("%s - %d",
-                        (String)entry.getKey(),
-                        ((AtomicInteger)entry.getValue()).get()));
+						 (String)entry.getKey(),
+						 ((AtomicInteger)entry.getValue()).get()));
             }
         }
         
         // Write TOLOP related stats to file
         try {
-           BufferedWriter bw = new BufferedWriter(new FileWriter("tolop_stats.txt"));
-           bw.write(runInfo.toString());
-           bw.close();
+	    BufferedWriter bw = new BufferedWriter(new FileWriter("tolop_stats.txt"));
+	    bw.write(runInfo.toString());
+	    bw.close();
         }
         catch (IOException e) {
             System.err.println("Error while writing (new) EnerJ results to file...");
@@ -2691,14 +2643,14 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 
         // Log memory usage in byte-seconds.
         countFootprint(memPart + "-bytes", false,
-            infoObj.preciseSize * duration);
+		       infoObj.preciseSize * duration);
         countFootprint(memPart + "-bytes", true,
-            infoObj.approxSize  * duration);
+		       infoObj.approxSize  * duration);
 
         if (debug) {
             System.out.println("EnerJ: object collected after " + duration +
-                        " (" + (infoObj.approx ? "A" : "P") + ", " +
-                        memPart + ")");
+			       " (" + (infoObj.approx ? "A" : "P") + ", " +
+			       memPart + ")");
         }
     }
 
@@ -2730,7 +2682,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             System.out.println("EnerJ: objects remaining at shutdown: " +
                                phantomInfo.size());
         for (Map.Entry<PhantomReference<Object>, ApproximationInformation> kv :
-                                            phantomInfo.entrySet()) {
+		 phantomInfo.entrySet()) {
             endLifetime(kv.getKey());
         }
     }
@@ -2804,7 +2756,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             for(int i = 0; i < error_array.length; i ++){
                 if(Math.ceil(Math.random()*total_additions) <= error_array[i]) {
 		    error = true;
-		    runInfo.countOperation("AdderError_Bit"+i, true, approximativeBits);
+		    runInfo.countError("AdderError_Bit"+i, true, approximativeBits);
                     if(Math.random()<0.5){
                         num = (int)num + (int)Math.pow(2,i);
                     }
@@ -2976,7 +2928,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public <T> T storeValue(T value, boolean approx, MemKind kind) {
-        runInfo.countOperation("store" + kind, approx, 0);
+        runInfo.countOperation("store" + kind, approx, 32);
         return value;
     }
 
@@ -2989,7 +2941,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public <T> T loadValue(T value, boolean approx, MemKind kind) {
-        runInfo.countOperation("load" + kind, approx, 0);
+        runInfo.countOperation("load" + kind, approx, 32);
         return value;
     }
 
@@ -3053,8 +3005,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             //--TOLOP
             //--Load from simulated memory hierarchy
             //if (null != obj) {
-                String key = memoryKey(obj, fieldname);
-                evictionOccurred = loadFromMemory(key, tim);
+	    String key = memoryKey(obj, fieldname);
+	    evictionOccurred = loadFromMemory(key, tim);
             //}
 
             val = loadValue((T) field.get(obj), approx, MemKind.FIELD);
@@ -3165,7 +3117,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         
         //--NOISY
         // if (!evictionOccurred) {
-            // memoryRefresh(key, val);
+	// memoryRefresh(key, val);
         // }
 
         // return val;
@@ -3187,14 +3139,14 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     @SuppressWarnings("unchecked")
     @Override
     public <T extends Number> T assignopLocal(
-        Reference<T> var,
-        ArithOperator op,
-        Number rhs,
-        boolean returnOld,
-        NumberKind nk,
-        boolean approx,
-        int approximativeBits
-    ) {
+					      Reference<T> var,
+					      ArithOperator op,
+					      Number rhs,
+					      boolean returnOld,
+					      NumberKind nk,
+					      boolean approx,
+					      int approximativeBits
+					      ) {
         T tmp = loadLocal(var, approx);
         T res = (T) binaryOp(var.value, rhs, op, nk, approx, approximativeBits);
         storeLocal(var, approx, res);
@@ -3252,15 +3204,15 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     @SuppressWarnings("unchecked")
     @Override
     public <T extends Number> T assignopArray(
-        Object array,
-        int index,
-        ArithOperator op,
-        Number rhs,
-        boolean returnOld,
-        NumberKind nk,
-        boolean approx,
-        int approximativeBits
-    ) {
+					      Object array,
+					      int index,
+					      ArithOperator op,
+					      Number rhs,
+					      boolean returnOld,
+					      NumberKind nk,
+					      boolean approx,
+					      int approximativeBits
+					      ) {
         T tmp = (T) loadArray(array, index, approx);
         T res = (T) binaryOp(tmp, rhs, op, nk, approx, approximativeBits);
         storeArray(array, index, approx, (T) makeKind(res, nk));
@@ -3285,15 +3237,15 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     @SuppressWarnings("unchecked")
     @Override
     public <T extends Number> T assignopField(
-        Object obj,
-        String fieldname,
-        ArithOperator op,
-        Number rhs,
-        boolean returnOld,
-        NumberKind nk,
-        boolean approx,
-        int approximativeBits
-    ) {
+					      Object obj,
+					      String fieldname,
+					      ArithOperator op,
+					      Number rhs,
+					      boolean returnOld,
+					      NumberKind nk,
+					      boolean approx,
+					      int approximativeBits
+					      ) {
         T tmp = (T) loadField(obj, fieldname, approx);
         T res = (T) binaryOp(tmp, rhs, op, nk, approx, approximativeBits);
         storeField(obj, fieldname, approx, (T) makeKind(res, nk));

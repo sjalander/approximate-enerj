@@ -17,6 +17,13 @@ class RunInfo {
     private Map<String, AtomicInteger> approxOpCounts32 = new HashMap<String, AtomicInteger>();
     private Map<String, AtomicInteger> preciseOpCounts  = new HashMap<String, AtomicInteger>();
 
+    private Map<String, AtomicInteger> approxErrorCounts0  = new HashMap<String, AtomicInteger>();
+    private Map<String, AtomicInteger> approxErrorCounts8  = new HashMap<String, AtomicInteger>();
+    private Map<String, AtomicInteger> approxErrorCounts16 = new HashMap<String, AtomicInteger>();
+    private Map<String, AtomicInteger> approxErrorCounts24 = new HashMap<String, AtomicInteger>();
+    private Map<String, AtomicInteger> approxErrorCounts32 = new HashMap<String, AtomicInteger>();
+    private Map<String, AtomicInteger> preciseErrorCounts  = new HashMap<String, AtomicInteger>();
+
     /**
      * Counters for data results.
      */
@@ -114,6 +121,43 @@ class RunInfo {
             map.put(name, new AtomicInteger(1));
         }
     }
+
+    /**
+     * Counting infrastructure, keeps track number of errros 
+     * @param name Name of the operation, namely what arithmetic operation took
+     * place with what type
+     * @param approx Whether operation is approximate or not
+     */
+    void countError(String name, boolean approx, int approximativeBits) {
+        Map<String, AtomicInteger> map = null;
+        if (approx)
+	    switch(approximativeBits) {
+	    case 0:
+		map = approxErrorCounts0;
+		break;
+	    case 8:
+		map = approxErrorCounts8;
+		break;
+	    case 16:
+		map = approxErrorCounts16;
+		break;
+	    case 24:
+		map = approxErrorCounts24;
+		break;
+	    default:
+		map = approxErrorCounts32;
+		break;
+	    }
+        else
+            map = preciseOpCounts;
+
+        if (map.containsKey(name)) {
+            map.get(name).incrementAndGet();
+        } else {
+            map.put(name, new AtomicInteger(1));
+        }
+    }
+
     public int getTotalMemOps() {
 	return memoryOpCounters.get("totalMemOps").get();
     }
@@ -422,6 +466,12 @@ class RunInfo {
 				    (String)entry.getKey(),
 				    ((AtomicInteger)entry.getValue()).get()));
 	}
+	sb.append("---Precise---\n");
+	for (Map.Entry<String,AtomicInteger> entry : preciseOpCounts.entrySet()) {
+	    sb.append(String.format("%-25s%10d\n",
+				    (String)entry.getKey(),
+				    ((AtomicInteger)entry.getValue()).get()));
+	}
 
 	sb.append("---Memory operations---\n");	
 	for (Map.Entry<String,AtomicInteger> entry : memoryOpCounters.entrySet()) {
@@ -448,6 +498,39 @@ class RunInfo {
 				getAverageSramTime(true)));
 	sb.append(String.format(Locale.UK, "Average time in SRAM (precise): %1.2f\n",
 				getAverageSramTime(false)));
+
+	sb.append("---Errors---\n");
+	sb.append("---Approx0---\n");
+	for (Map.Entry<String,AtomicInteger> entry : approxErrorCounts0.entrySet()) {
+	    sb.append(String.format("%-25s%10d\n",
+				    (String)entry.getKey(),
+				    ((AtomicInteger)entry.getValue()).get()));
+	}
+	sb.append("---Approx8---\n");
+	for (Map.Entry<String,AtomicInteger> entry : approxErrorCounts8.entrySet()) {
+	    sb.append(String.format("%-25s%10d\n",
+				    (String)entry.getKey(),
+				    ((AtomicInteger)entry.getValue()).get()));
+	}  
+	sb.append("---Approx16---\n");
+	for (Map.Entry<String,AtomicInteger> entry : approxErrorCounts16.entrySet()) {
+	    sb.append(String.format("%-25s%10d\n",
+				    (String)entry.getKey(),
+				    ((AtomicInteger)entry.getValue()).get()));
+	}
+	sb.append("---Approx24---\n");
+	for (Map.Entry<String,AtomicInteger> entry : approxErrorCounts24.entrySet()) {
+	    sb.append(String.format("%-25s%10d\n",
+				    (String)entry.getKey(),
+				    ((AtomicInteger)entry.getValue()).get()));
+	}
+	sb.append("---Approx32---\n");
+	for (Map.Entry<String,AtomicInteger> entry : approxErrorCounts32.entrySet()) {
+	    sb.append(String.format("%-25s%10d\n",
+				    (String)entry.getKey(),
+				    ((AtomicInteger)entry.getValue()).get()));
+	}
+
 	return sb.toString();
     }
 }

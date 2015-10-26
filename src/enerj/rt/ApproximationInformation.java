@@ -39,7 +39,7 @@ class ApproximationInformation {
      *  approximative. E.g. @Approx8.
      *  If partialApprox == 0, then the whole (primitive) type is approximative.
      */
-    public int approximativeBits = 0;
+    public int approximativeBits = -1;
 
     /**
      * To save a bit of space, we only store the creation time
@@ -58,6 +58,10 @@ class ApproximationInformation {
         this.preciseSize = preciseSize;
         this.approxSize = approxSize;
         this.approximativeBits = approximativeBits;
+
+	if (approx && approximativeBits == 0)
+	    System.out.println("approximativeBits set to 0");
+
     }
 
     public int getSize() {

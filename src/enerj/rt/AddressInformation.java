@@ -53,7 +53,7 @@ class AddressInformation extends ApproximationInformation {
     }
 
     AddressInformation(long t, boolean approx, boolean heap, int preciseSize,
-               int approxSize, int approximativeBits, long address) {
+		       int approxSize, int approximativeBits, long address) {
         this(t, approx, heap, preciseSize, approxSize, approximativeBits, address, -1);
     }
 
@@ -99,17 +99,21 @@ class AddressInformation extends ApproximationInformation {
      * Sets all given states.
      */
     AddressInformation(long t, boolean approx, boolean heap, int preciseSize,
-               int approxSize, int approximativeBits, long address, long timeStamp) {
+		       int approxSize, int approximativeBits, long address, long timeStamp) {
         super(t, approx, heap, preciseSize, approxSize, approximativeBits);
         this.timeStamp = timeStamp; // Manually entered SRAM time
         this.address = address; // The address
+	/*
+	if (approximativeBits == 0)
+	    System.out.println("AddrInfo approximativeBits set to 0");
+	*/
     }
     
     /**
      * Update time of usage to current time.
      */
     public void setTimeStamp() {
-         this.timeStamp = System.currentTimeMillis();
+	this.timeStamp = System.currentTimeMillis();
     }
     
     /**
@@ -117,7 +121,7 @@ class AddressInformation extends ApproximationInformation {
      * @param newTimeStamp New custom time stamp
      */
     public void setTimeStamp(long timeStamp) {
-         this.timeStamp = timeStamp;
+	this.timeStamp = timeStamp;
     }
     
     /**
@@ -158,16 +162,27 @@ class AddressInformation extends ApproximationInformation {
     public Object[] getObjectAndSpecification() {
         return fieldname == null
             ? new Object[]{obj, index}
-            : new Object[]{obj, fieldname};
-            //? new Object[]{obj.get(), index}
-            //: new Object[]{obj.get(), fieldname};
+	: new Object[]{obj, fieldname};
+	//? new Object[]{obj.get(), index}
+	//: new Object[]{obj.get(), fieldname};
     }
 
     /**
      * Get the address
      * @return The address
      */
-	public final long getAddress() {
-		return address;
-	}
-}
+    public final long getAddress() {
+	return address;
+    }
+
+    /**
+     * Get how many bits that are approximate
+     */
+    public int getApproximativeBits() {
+	/*
+	if (approximativeBits == -1)
+	    System.err.println("approximativeBits has not been set");
+	*/
+	return approximativeBits;
+    }
+} 
