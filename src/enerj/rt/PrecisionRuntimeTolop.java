@@ -952,7 +952,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     protected float TIMING_ERROR_PROB_PERCENT = 1.5f;
 
     /* Addition result bitwise error probability */
-    protected final String ADDER_NOISE_FILE = "error_model/quaternary.json";
+    protected String ADDER_NOISE_FILE = "error_model/quaternary.json";
     protected int[] ADDITION_ERRORS = new int[32];
     protected int ADDITION_TOTAL = 0;
 
@@ -979,7 +979,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     //The subtraction data is gathered by doing a twos complement simulation 
     //followed by and addition simulation.
     /* Twos complement result bitwise error probability for pure quaternary */
-    protected final String TWOCOMP_NOISE_FILE = "error_model/quaternary_sub.json";
+    protected String TWOCOMP_NOISE_FILE = "error_model/quaternary_sub.json";
     protected int[] SUBTRACTION_ERRORS = new int[32];
     protected int TWOCOMP_TOTAL = 0; //Number of Twos complement done in the simulation
 
@@ -1328,9 +1328,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         //Loading the addition error data form json file
         FileReader ar = null;
         try {
+	    System.out.println("Reading adder noise file: " + ADDER_NOISE_FILE);
             ar = new FileReader(ADDER_NOISE_FILE);
         } catch (IOException exc) {
-            System.err.println("   Adder noise file not found; using defaults.");
+            System.err.println("   Adder noise file " + ADDER_NOISE_FILE + " not found; using defaults.");
         }
 
         if (ar != null) {
@@ -1430,9 +1431,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         //Loading the subtraction error data 
         ar = null;
         try {
+	    System.out.println("Reading twocomp noise file: " + TWOCOMP_NOISE_FILE);
             ar = new FileReader(TWOCOMP_NOISE_FILE);
         } catch (IOException exc) {
-            System.err.println("   Twos_comp noise file not found; using defaults (0).");
+            System.err.println("   Twos_comp noise file " + TWOCOMP_NOISE_FILE + " not found; using defaults (0).");
         }
 
         if (ar != null) {
@@ -1868,8 +1870,13 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     public PrecisionRuntimeTolop(int cacheSize,
                                  int cacheLineSize,
                                  int sramAssociativity,
-                                 String classInfoFilename) {
+                                 String classInfoFilename,
+				 String adderNoise,
+				 String twoCompNoise) {
         super();
+
+	ADDER_NOISE_FILE = adderNoise;
+	TWOCOMP_NOISE_FILE = twoCompNoise;
 
         startup = System.currentTimeMillis();
 
@@ -2001,7 +2008,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     public PrecisionRuntimeTolop(int cacheSize,
                                  int cacheLineSize,
                                  int sramAssociativity) {
-        this(cacheSize, cacheLineSize, sramAssociativity, JSON_INPUT_FILE_NAME);
+        this(cacheSize, cacheLineSize, sramAssociativity, JSON_INPUT_FILE_NAME, "error_model/quaternary.json", "error_model/quaternary_sub.json");
     }
 
     /**
@@ -2014,7 +2021,9 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         this(Integer.parseInt(System.getProperty("CacheSize", "2048")), // In qytes, not bytes
 	     Integer.parseInt(System.getProperty("CacheLineSize", "16")), // Quad-words, not byte-words
 	     Integer.parseInt(System.getProperty("CacheAssociativity", "4")), //Default: 4-way
-	     classInfoFilename);
+	     classInfoFilename,
+	     System.getProperty("AdderNoise", "error_model/quaternary.json"),
+	     System.getProperty("TwoCompNoise", "error_model/quaternary_sub.json"));
         System.err.println(String.format("CacheSize: %d, CacheLineSize: %d, "
 					 + "CacheAssociativity: %d",
 					 Integer.parseInt(System.getProperty("CacheSize", "2048")),
