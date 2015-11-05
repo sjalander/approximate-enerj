@@ -58,10 +58,6 @@ class ApproximationInformation {
         this.preciseSize = preciseSize;
         this.approxSize = approxSize;
         this.approximativeBits = approximativeBits;
-
-	if (approx && approximativeBits == 0)
-	    System.out.println("approximativeBits set to 0");
-
     }
 
     public int getSize() {

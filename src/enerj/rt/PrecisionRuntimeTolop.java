@@ -505,7 +505,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 		    String key = memoryKey(arr, index);
 		    long address = createAddress(typeSize, approx); // Address to array reference
 		    addToCachelineTracker(approx ? address | approxMask : address, key);
-                
+
 		    AddressInformation ainfo =
                         new AddressInformation(tim, approx, true, preciseSize,
 					       approxSize, approximativeBits, address, startup-1); // -1: Trick to force oldest possible time stamp
@@ -563,11 +563,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         AddressInformation addressInfo;
         for (String key : cacheline) {
 	    addressInfo = memorySpace.get(key);
-	    // Check if this item has approximative bits and in that
-	    // case apply errors
-
-	    System.out.println(dram ? "DRAMld " : "DRAMst " + addressInfo.approx + " bits: " + addressInfo.getApproximativeBits());
-
+	    /*
 	    if (dram) {
 		// Reading from DRAM and writing into cache
 		runInfo.countOperation("Store", addressInfo.approx, addressInfo.getApproximativeBits());
@@ -577,8 +573,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 		runInfo.countOperation("Load", addressInfo.approx, addressInfo.getApproximativeBits());
 		runInfo.countOperation("DRAMstore", addressInfo.approx, addressInfo.getApproximativeBits());
 	    }
-
+	    */
 	    if (ALLOW_APPROXIMATE && addressInfo.approximativeBits!=0) {
+		// Check if this item has approximative bits and in that
+		// case apply errors
 		loadChangeStore(addressInfo, currentTimeTuple, currentTimeStamp, dram);
 		addressInfo.clearFlipped();
 	    }
@@ -714,12 +712,14 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         Boolean evictionOccurred = true;
         //--Early in program execution - nothing to evict yet
         if (indexAssocLine.size() < sramAssociativity) {
+	    runInfo.countOperation("CacheMiss-Cold", currentAinfo.approx, currentAinfo.approximativeBits);
             indexAssocLine.put(currentAddrTag, currentTimeTuple);
             currentTimeTuple.setLruTime(tim);
             currentTimeTuple.setSramTime(tim);
             evictionOccurred = false;
         }
         else { //--Evict oldest and insert loaded CL
+	    runInfo.countOperation("CacheMiss", currentAinfo.approx, currentAinfo.approximativeBits);
             //--Find oldest line currently in the index
 	    long oldestTime = Long.MAX_VALUE;
             TimeTuple tmpTuple;
@@ -790,21 +790,19 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         AddressInformation addressInfo = memorySpace.get(key);
         
         //--Count this memory operation
+	runInfo.countOperation("MemTotal", addressInfo.approx, addressInfo.getApproximativeBits());
         if (store) {
-	    runInfo.countOperation("Store", addressInfo.approx, addressInfo.getApproximativeBits());
+	    runInfo.countOperation("MemStore", addressInfo.approx, addressInfo.getApproximativeBits());
 
             runInfo.increaseStores(addressInfo.approx);
             runInfo.increaseStoredQytes(addressInfo.approx,
 					addressInfo.getSize());
-            if (debug) System.err.print("Load - ");
-        }
-        else {
-	    runInfo.countOperation("Load", addressInfo.approx, addressInfo.getApproximativeBits());
+        } else {
+	    runInfo.countOperation("MemLoad", addressInfo.approx, addressInfo.getApproximativeBits());
 
             runInfo.increaseLoads(addressInfo.approx);
             runInfo.increaseLoadedQytes(addressInfo.approx,
 					addressInfo.getSize());
-            if (debug) System.err.print("Store - ");
         }
         if (debug) {
             System.err.println(String.format("%d: %s, %d qytes",
@@ -832,6 +830,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             TimeTuple lineInSRAM = indexAssocLine.get(addrTag);
             lineInSRAM.setLruTime(currentTime);
             runInfo.increaseHits(addressInfo.approx);
+	    runInfo.countOperation("CacheHit", addressInfo.approx, addressInfo.approximativeBits);
         }
         else { // Tag doesn't exist in cache: load from DRAM (including eviction)
             // Load time information 
@@ -1557,19 +1556,6 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                 System.err.println("   Number of TWOCOMP_24 does not match Number of ADDITION_24");
             }
         }
-
-	/*
-	  if(ADDITION_TOTAL == 0){
-	  System.err.println("   ADDITION_NOISE: DISABLED");
-	  }
-	  else{
-	  System.err.println("   ADDITION_NOISE: ENABLED");
-	  for(int i = 0; i<32; i++){
-	  System.err.println("   Bit" + (i+1) + ": " + ADDITION_ERRORS[i]);
-	  }
-	  System.err.println("  Each bit divided by: " + ADDITION_TOTAL);
-	  }
-	*/
     }
 
     /* (TRICK TO DIVIDE NOISY FROM DEFAULT)
@@ -1659,10 +1645,6 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 						   int approxSize, 
 						   int approximativeBits
 						   ) {
-	if (approx && approximativeBits == 0)
-	    System.out.println("approximativeBits set to 0");
-	//	System.out.println( (approx ? "Approx" : "Precise") + " Bits: " + approximativeBits);
-
         if (debug) {
             System.out.println("EnerJ: Add object " + System.identityHashCode(o)
 			       + " to system.");
@@ -1831,8 +1813,9 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                             approxSize = fieldSize;
 			    approximativeBits = mapApproximativeBits(fic.annotation);
 			} else
-                            preciseSize = fieldSize;
-                        AddressInformation addressInfo =
+                            preciseSize = fieldSize; 
+
+                       AddressInformation addressInfo =
 			    new AddressInformation(tim, approx, true, preciseSize,
 						   approxSize, approximativeBits, address, startup-1); // -1: Trick to force oldest possible time stamp
                         // TODO #bug: How to set static objects?
@@ -2511,7 +2494,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     public <T> T newArray(T created, int dims, boolean approx,
                           int preciseElSize, int approxElSize) {
         return this.newArray(created, dims, approx, preciseElSize,
-                             approxElSize, 0);
+                             approxElSize, 32);
     }
 
     /**
@@ -2712,7 +2695,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public <T> T countLogicalOp(T value) {
-        runInfo.countOperation("INTlogic", false, 0);
+	//        runInfo.countOperation("INTlogic", false, 0);
         return value;
     }
 
@@ -2788,8 +2771,9 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                            NumberKind nk,
                            boolean approx, 
 			   int approximativeBits) {
-        // DEFAULT
-        runInfo.countOperation(nk + opSymbol(op), approx, approximativeBits);
+        // DEFAUL
+	runInfo.countOperation("OpsTotal", ALLOW_APPROXIMATE ? approx : false, approximativeBits);
+	runInfo.countOperation("Ops" + nk + opSymbol(op), ALLOW_APPROXIMATE ? approx : false, approximativeBits);
 
         Number num = null;
         // Prevent divide-by-zero on approximate data.
@@ -2928,7 +2912,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public <T> T storeValue(T value, boolean approx, MemKind kind) {
-        runInfo.countOperation("store" + kind, approx, 32);
+	//        runInfo.countOperation("store" + kind, approx, 32);
         return value;
     }
 
@@ -2941,7 +2925,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public <T> T loadValue(T value, boolean approx, MemKind kind) {
-        runInfo.countOperation("load" + kind, approx, 32);
+	//        runInfo.countOperation("load" + kind, approx, 32);
         return value;
     }
 

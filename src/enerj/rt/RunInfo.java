@@ -3,6 +3,10 @@ package enerj.rt;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TreeSet;
+import java.util.SortedSet;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -437,59 +441,125 @@ class RunInfo {
 
 	sb.append("---Arithmetic operations---\n");
 	sb.append("---Approx0---\n");
-	for (Map.Entry<String,AtomicInteger> entry : approxOpCounts0.entrySet()) {
+	SortedSet<String> keys = new TreeSet<String>(approxOpCounts0.keySet());
+	for (String key : keys) { 
 	    sb.append(String.format("%-25s%10d\n",
-				    (String)entry.getKey(),
-				    ((AtomicInteger)entry.getValue()).get()));
+				    key,
+				    ((AtomicInteger)approxOpCounts0.get(key)).get()));	
 	}
 	sb.append("---Approx8---\n");
-	for (Map.Entry<String,AtomicInteger> entry : approxOpCounts8.entrySet()) {
+	keys = new TreeSet<String>(approxOpCounts8.keySet());
+	for (String key : keys) { 
 	    sb.append(String.format("%-25s%10d\n",
-				    (String)entry.getKey(),
-				    ((AtomicInteger)entry.getValue()).get()));
-	}  
+				    key,
+				    ((AtomicInteger)approxOpCounts8.get(key)).get()));	
+	}
 	sb.append("---Approx16---\n");
-	for (Map.Entry<String,AtomicInteger> entry : approxOpCounts16.entrySet()) {
+	keys = new TreeSet<String>(approxOpCounts16.keySet());
+	for (String key : keys) { 
 	    sb.append(String.format("%-25s%10d\n",
-				    (String)entry.getKey(),
-				    ((AtomicInteger)entry.getValue()).get()));
+				    key,
+				    ((AtomicInteger)approxOpCounts16.get(key)).get()));	
 	}
 	sb.append("---Approx24---\n");
-	for (Map.Entry<String,AtomicInteger> entry : approxOpCounts24.entrySet()) {
+	keys = new TreeSet<String>(approxOpCounts24.keySet());
+	for (String key : keys) { 
 	    sb.append(String.format("%-25s%10d\n",
-				    (String)entry.getKey(),
-				    ((AtomicInteger)entry.getValue()).get()));
+				    key,
+				    ((AtomicInteger)approxOpCounts24.get(key)).get()));	
 	}
 	sb.append("---Approx32---\n");
-	for (Map.Entry<String,AtomicInteger> entry : approxOpCounts32.entrySet()) {
+	keys = new TreeSet<String>(approxOpCounts32.keySet());
+	for (String key : keys) { 
 	    sb.append(String.format("%-25s%10d\n",
-				    (String)entry.getKey(),
-				    ((AtomicInteger)entry.getValue()).get()));
+				    key,
+				    ((AtomicInteger)approxOpCounts32.get(key)).get()));	
 	}
 	sb.append("---Precise---\n");
-	for (Map.Entry<String,AtomicInteger> entry : preciseOpCounts.entrySet()) {
+	keys = new TreeSet<String>(preciseOpCounts.keySet());
+	for (String key : keys) { 
 	    sb.append(String.format("%-25s%10d\n",
-				    (String)entry.getKey(),
-				    ((AtomicInteger)entry.getValue()).get()));
+				    key,
+				    ((AtomicInteger)preciseOpCounts.get(key)).get()));	
+	}
+	sb.append("---Summary---\n");
+	Map<String, Integer> summary  = new HashMap<String, Integer>();
+	Map<String, Integer> approxSummary  = new HashMap<String, Integer>();
+
+	List<String> list = new ArrayList<String>();
+	list.add("CacheHit");
+	list.add("CacheMiss");
+	list.add("MemLoad");
+	list.add("MemStore");
+	list.add("MemTotal");
+	list.add("OpsINT+");
+	list.add("OpsINT-");
+	list.add("OpsTotal");
+	for (String key : list) {
+	    int value = 0;
+	    if (approxOpCounts0.containsKey(key))
+		value +=approxOpCounts0.get(key).get();
+	    if (approxOpCounts8.containsKey(key))
+		value += approxOpCounts8.get(key).get();
+	    if (approxOpCounts16.containsKey(key))
+		value +=approxOpCounts16.get(key).get();
+	    if (approxOpCounts24.containsKey(key))
+		value += approxOpCounts24.get(key).get();
+	    if (approxOpCounts32.containsKey(key))
+		value +=approxOpCounts32.get(key).get();
+	    // Store the sum of all approximate operations
+	    approxSummary.put(key, new Integer(value));
+	    if (preciseOpCounts.containsKey(key))
+		value += preciseOpCounts.get(key).get();
+
+	    summary.put(key, new Integer(value));
+	    sb.append(String.format("%-25s%10d\n",
+				    key,
+				    value));
+	}
+	float hitRate = (float)summary.get("CacheHit")/(float)summary.get("MemTotal") * 100;
+	sb.append(String.format("%-25s%10f\n",
+				"HitRate",
+				hitRate));
+
+	float opsRate = ((float)summary.get("OpsINT+")+(float)summary.get("OpsINT-"))/(float)summary.get("OpsTotal") * 100;
+	sb.append(String.format("%-25s%10f\n",
+				"INT+/- rate",
+				opsRate));
+
+	float approxOpsRate =(float)approxSummary.get("OpsTotal")/(float)summary.get("OpsTotal") * 100;
+	sb.append(String.format("%-25s%10f\n",
+				"ApproxOps rate",
+				approxOpsRate));
+
+	float approxMemRate =(float)approxSummary.get("MemTotal")/(float)summary.get("MemTotal") * 100;
+	sb.append(String.format("%-25s%10f\n",
+				"ApproxMem rate",
+				approxMemRate));
+
+	sb.append("---Memory operations---\n");
+	keys = new TreeSet<String>(memoryOpCounters.keySet());
+	for (String key : keys) { 
+	    sb.append(String.format("%-25s%10d\n",
+				    key,
+				    ((AtomicInteger)memoryOpCounters.get(key)).get()));	
 	}
 
-	sb.append("---Memory operations---\n");	
-	for (Map.Entry<String,AtomicInteger> entry : memoryOpCounters.entrySet()) {
+        keys = new TreeSet<String>(memoryTimeCounters.keySet());
+	for (String key : keys) { 
 	    sb.append(String.format("%-25s%10d\n",
-				    (String)entry.getKey(),
-				    ((AtomicInteger)entry.getValue()).get()));	
+				    key,
+				    ((AtomicLong)memoryTimeCounters.get(key)).get()));	
 	}
-	for (Map.Entry<String,AtomicLong> entry : memoryTimeCounters.entrySet()) {
+
+
+	keys = new TreeSet<String>(memorySizeCounters.keySet());
+	for (String key : keys) { 
 	    sb.append(String.format("%-25s%10d\n",
-				    (String)entry.getKey(),
-				    ((AtomicLong)entry.getValue()).get()));	
+				    key,
+				    ((AtomicLong)memorySizeCounters.get(key)).get()));	
 	}
-	for (Map.Entry<String,AtomicLong> entry : memorySizeCounters.entrySet()) {
-	    sb.append(String.format("%-25s%10d\n",
-				    (String)entry.getKey(),
-				    ((AtomicLong)entry.getValue()).get()));	
-	}
-	
+
 	sb.append("---Memory Summary---\n");
 	sb.append("Evictions: " + getTotalEvictions() + "\n");
 	sb.append(String.format(Locale.UK, "Average time in SRAM: %1.2f\n",

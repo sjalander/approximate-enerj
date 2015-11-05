@@ -103,10 +103,6 @@ class AddressInformation extends ApproximationInformation {
         super(t, approx, heap, preciseSize, approxSize, approximativeBits);
         this.timeStamp = timeStamp; // Manually entered SRAM time
         this.address = address; // The address
-	/*
-	if (approximativeBits == 0)
-	    System.out.println("AddrInfo approximativeBits set to 0");
-	*/
     }
     
     /**

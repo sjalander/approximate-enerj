@@ -51,6 +51,8 @@ public class RuntimePrecisionTranslator extends HelpfulTreeTranslator<PrecisionC
             return 16;
         else if (type.hasEffectiveAnnotation(checker.APPROX24))
             return 24;
+        else if (type.hasEffectiveAnnotation(checker.APPROX))
+            return 32;
 
         if (retVal != 0) // DEBUG
             System.err.println(retVal);
