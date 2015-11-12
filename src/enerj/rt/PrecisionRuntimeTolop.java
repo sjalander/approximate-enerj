@@ -121,7 +121,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     /**
      *  If true, values may be approximate; else, all values are precise.
      *  This is used to show the difference between a regular- and an
-     *  approximative computer architecture.
+     *  approximate computer architecture.
      */
     private boolean ALLOW_APPROXIMATE = true;
 
@@ -146,7 +146,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      *  Address specific variables.
      */
     private long addressGeneratorPrecise = 0; // Address counter of precise memory
-    private long addressGeneratorApprox = 0; // Address counter of approximative memory
+    private long addressGeneratorApprox = 0; // Address counter of approximate memory
     private int cacheSize; // Total size of the cache
     private int cacheLineSizeInWords; // Size of a cache line in words
     private int cacheLineSizeInQytes; // Size of a cache line in bytes
@@ -332,8 +332,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     }
 
     /**
-     * Memory is stored on different DRAM chips depending on approximative or not?
-     * @return If memory is stored on different DRAM if approximative, return true;
+     * Memory is stored on different DRAM chips depending on approximate or not?
+     * @return If memory is stored on different DRAM if approximate, return true;
      * else, return false.
      */
     public boolean hasDifferentDRAM() {
@@ -940,6 +940,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     // Probabilities.
     protected long INVPROB_SRAM_WRITE_FAILURE = (long)Math.pow(10, 4.94);
     protected long INVPROB_SRAM_READ_UPSET = (long)Math.pow(10, 7.4);
+    protected long INVPROB_REGISTER_WRITE_FAILURE = (long)Math.pow(10, 4.94);
+    protected long INVPROB_REGISTER_READ_UPSET = (long)Math.pow(10, 7.4);
     // FPU characteristics (mantissa bits).
     protected final int MB_FLOAT_PRECISE = 23;
     protected int MB_FLOAT_APPROX = 8;
@@ -1278,6 +1280,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 		    json.getLong("INVPROB_SRAM_WRITE_FAILURE");
 		INVPROB_SRAM_READ_UPSET =
 		    json.getLong("INVPROB_SRAM_READ_UPSET");
+        INVPROB_REGISTER_WRITE_FAILURE =
+		    json.getLong("INVPROB_REGISTER_WRITE_FAILURE");
+        INVPROB_REGISTER_READ_UPSET =
+		    json.getLong("INVPROB_REGISTER_READ_UPSET");
 		MB_FLOAT_APPROX = json.getInt("MB_FLOAT_APPROX");
 		MB_DOUBLE_APPROX = json.getInt("MB_DOUBLE_APPROX");
 		INVPROB_DRAM_FLIP_PER_SECOND =
@@ -1314,9 +1320,17 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         TIMING_ERROR_PROB_PERCENT
 	    = Float.parseFloat(System.getProperty("TIMING_ERROR_PROB_PERCENT",
 						  Float.toString(TIMING_ERROR_PROB_PERCENT)));
+        INVPROB_REGISTER_WRITE_FAILURE
+	    = Long.parseLong(System.getProperty("INVPROB_REGISTER_WRITE_FAILURE",
+						Long.toString(INVPROB_SRAM_WRITE_FAILURE)));
+        INVPROB_REGISTER_READ_UPSET
+	    = Long.parseLong(System.getProperty("INVPROB_REGISTER_READ_UPSET",
+						Long.toString(INVPROB_SRAM_READ_UPSET)));
 
         System.err.println("\tSRAM WF: " + INVPROB_SRAM_WRITE_FAILURE);
         System.err.println("\tSRAM RU: " + INVPROB_SRAM_READ_UPSET);
+        System.err.println("\tRegister WF: " + INVPROB_REGISTER_WRITE_FAILURE);
+        System.err.println("\tRegister RU: " + INVPROB_REGISTER_READ_UPSET);
         System.err.println("\tfloat bits: " + MB_FLOAT_APPROX);
         System.err.println("\tdouble bits: " + MB_DOUBLE_APPROX);
         System.err.println("\tDRAM decay: " + INVPROB_DRAM_FLIP_PER_SECOND);
@@ -2953,7 +2967,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     }
 
     /**
-     * Load a local value.
+     * Load a local value, possibly with load upsets if approximate.
      * @param ref Value reference
      * @param approx Whether the value is approximate or not
      */
@@ -2961,6 +2975,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     public <T> T loadLocal(Reference<T> ref, boolean approx) {
         runInfo.increaseLocalLoads(ALLOW_APPROXIMATE ? approx : false);
         T val = loadValue(ref.value, approx, MemKind.VARIABLE);
+        if (approx) {
+            val = bitError(val, INVPROB_REGISTER_READ_UPSET,
+                    ref.approximativeBits);
+        }
         return val;
     }
 
@@ -3012,8 +3030,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             //--TOLOP
             //--Load from simulated memory hierarchy
             //if (null != obj) {
-	    String key = memoryKey(obj, fieldname);
-	    evictionOccurred = loadFromMemory(key, tim);
+            String key = memoryKey(obj, fieldname);
+            evictionOccurred = loadFromMemory(key, tim);
             //}
 
             val = loadValue((T) field.get(obj), approx, MemKind.FIELD);
@@ -3031,7 +3049,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     }
 
     /**
-     * Store a local value.
+     * Store a local value, possibly with store errors if approximate.
      * @param ref Value reference, will be updated by rhs
      * @param approx Whether the value is approximate or not
      * @param rhs The value to be stored
@@ -3041,7 +3059,12 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     public <T> T storeLocal(Reference<T> ref, boolean approx, T rhs) {
     	// TODO #general: If static - allow local errors after all?
         runInfo.increaseLocalStores(ALLOW_APPROXIMATE ? approx : false);
-        ref.value = storeValue(rhs, approx, MemKind.VARIABLE);
+        T value = storeValue(rhs, approx, MemKind.VARIABLE);
+        if (approx) {
+            value = bitError(value, INVPROB_REGISTER_WRITE_FAILURE,
+                    ref.approximativeBits);
+        }
+        ref.value = value;
         return ref.value;
     }
 
