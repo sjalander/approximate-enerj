@@ -952,58 +952,57 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     protected float TIMING_ERROR_PROB_PERCENT = 1.5f;
 
     /* Addition result bitwise error probability */
-    protected String ADDER_NOISE_FILE = "error_model/quaternary.json";
-    protected int[] ADDITION_ERRORS = new int[32];
-    protected int ADDITION_TOTAL = 0;
+    //    protected String ADDER_NOISE_FILE = "error_model/quaternary.json";
+    //    protected int[] ADDITION_ERRORS = new int[32];
+    //    protected int ADDITION_TOTAL = 0;
 
-    /* Addition result bitwise error probability for 0 quart bits (all binary may still have some errors) */
+    protected final long[] ADDITION_ERRORS = {
+	19804702, 4519584, 42532066, 14949752, 49044778, 22058413, 54386385, 27809980, 
+	58588568, 32334365, 61672709, 35683951, 63624397, 37850065, 64450171, 38856441, 
+	64149132, 38700788, 62726181, 37373376, 60176483, 34884115, 56501379, 31222230, 
+	51692866, 26394548, 45738613, 20378597, 38649184, 13190726, 30364086, 2045486
+    };
+
+    /*
+    // Addition result bitwise error probability for 0 quart bits (all binary may still have some errors)
     protected final String ADDER_NOISE_FILE_0 = "error_model/binary.json";
     protected int[] ADDITION_ERRORS_0 = new int[32];
     protected int ADDITION_TOTAL_0 = 0; //Number of additions done in the simulation
-
-    /* Addition result bitwise error probability  for 8 quart bits */
+    // Addition result bitwise error probability  for 8 quart bits 
     protected final String ADDER_NOISE_FILE_8 = "error_model/quaternary8.json";
     protected int[] ADDITION_ERRORS_8 = new int[32];
     protected int ADDITION_TOTAL_8 = 0; //Number of additions done in the simulation
-
-    /* Addition result bitwise error probability  for 16 quart bits */
+    // Addition result bitwise error probability  for 16 quart bits
     protected final String ADDER_NOISE_FILE_16 = "error_model/quaternary16.json";
     protected int[] ADDITION_ERRORS_16 = new int[32];
     protected int ADDITION_TOTAL_16 = 0; //Number of additions done in the simulation
-
-    /* Addition result bitwise error probability  for 24 quart bits */
+    // Addition result bitwise error probability  for 24 quart bits
     protected final String ADDER_NOISE_FILE_24 = "error_model/quaternary24.json";
     protected int[] ADDITION_ERRORS_24 = new int[32];
     protected int ADDITION_TOTAL_24 = 0; //Number of additions done in the simulation
-
     //The subtraction data is gathered by doing a twos complement simulation 
     //followed by and addition simulation.
-    /* Twos complement result bitwise error probability for pure quaternary */
+    // Twos complement result bitwise error probability for pure quaternary
     protected String TWOCOMP_NOISE_FILE = "error_model/quaternary_sub.json";
     protected int[] SUBTRACTION_ERRORS = new int[32];
     protected int TWOCOMP_TOTAL = 0; //Number of Twos complement done in the simulation
-
-    /* Twos complement result bitwise error probability  for 0 quart bits (all binary may still have some errors) */
+    // Twos complement result bitwise error probability  for 0 quart bits (all binary may still have some errors) 
     protected final String TWOCOMP_NOISE_FILE_0 = "error_model/binary_sub.json";
     protected int[] SUBTRACTION_ERRORS_0 = new int[32];
     protected int TWOCOMP_TOTAL_0 = 0; //Number of Twos complement done in the simulation
-
-    /* Twos complement result bitwise error probability  for 8 quart bits */
+    // Twos complement result bitwise error probability  for 8 quart bits
     protected final String TWOCOMP_NOISE_FILE_8 = "error_model/quaternary8_sub.json";
     protected int[] SUBTRACTION_ERRORS_8 = new int[32];
     protected int TWOCOMP_TOTAL_8 = 0; //Number of Twos complement done in the simulation
-
-    /* Twos complement result bitwise error probability  for 16 quart bits */
+    // Twos complement result bitwise error probability  for 16 quart bits
     protected final String TWOCOMP_NOISE_FILE_16 = "error_model/quaternary16_sub.json";
     protected int[] SUBTRACTION_ERRORS_16 = new int[32];
     protected int TWOCOMP_TOTAL_16 = 0; //Number of Twos complement done in the simulation
-
-    /* Twos complement result bitwise error probability  for 24 quart bits */
+    // Twos complement result bitwise error probability  for 24 quart bits
     protected final String TWOCOMP_NOISE_FILE_24 = "error_model/quaternary24_sub.json";
     protected int[] SUBTRACTION_ERRORS_24 = new int[32];
     protected int TWOCOMP_TOTAL_24 = 0; //Number of Twos complement done in the simulation
-
-
+    */
 
     // Indicates that the approximation should not be used;
     protected final int DISABLED;
@@ -1013,7 +1012,6 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     // Timing errors for arithmetic.
     private HashMap<Class<?>, Number> lastValues = new HashMap<Class<?>, Number>();
     
-
     // Error injection helpers.
 
     private long toBits(Object value) {
@@ -1325,6 +1323,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         System.err.println("\ttiming error mode: " + TIMING_ERROR_MODE);
         System.err.println("\ttiming error prob: " + TIMING_ERROR_PROB_PERCENT);
 
+	/*
         //Loading the addition error data form json file
         FileReader ar = null;
         try {
@@ -1558,6 +1557,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                 System.err.println("   Number of TWOCOMP_24 does not match Number of ADDITION_24");
             }
         }
+	*/
     }
 
     /* (TRICK TO DIVIDE NOISY FROM DEFAULT)
@@ -1874,10 +1874,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 				 String adderNoise,
 				 String twoCompNoise) {
         super();
-
+	/*
 	ADDER_NOISE_FILE = adderNoise;
 	TWOCOMP_NOISE_FILE = twoCompNoise;
-
+	*/
         startup = System.currentTimeMillis();
 
         /* Initialize cache hierarchy
@@ -2714,36 +2714,50 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * @return Potentially some erroneous value
      */
     private Number adderNoise(Number num, int approximativeBits) {
-	int error_array [];
-	int total_additions;
+	long error_array [];
+	long total_additions;
 
+
+	/* TODO: The error models need to be created for the other
+	 * approximate cases
+	 */
 	switch(approximativeBits){
 	case 0:
-	    error_array = ADDITION_ERRORS_0;
-	    total_additions = ADDITION_TOTAL_0;
+	    error_array = ADDITION_ERRORS;
+	    total_additions = 1000000000 * (INVPROB_SRAM_READ_UPSET/10);
+	    //	    error_array = ADDITION_ERRORS_0;
+	    //	    total_additions = ADDITION_TOTAL_0;
 	    break;
 	case 8:
-	    error_array = ADDITION_ERRORS_8;
-	    total_additions = ADDITION_TOTAL_8;
+	    error_array = ADDITION_ERRORS;
+	    total_additions = 1000000000 * (INVPROB_SRAM_READ_UPSET/10);
+	    //	    error_array = ADDITION_ERRORS_8;
+	    //	    total_additions = ADDITION_TOTAL_8;
 	    break;
 	case 16:
-	    error_array = ADDITION_ERRORS_16;
-	    total_additions = ADDITION_TOTAL_16;
+	    error_array = ADDITION_ERRORS;
+	    total_additions = 1000000000 * (INVPROB_SRAM_READ_UPSET/10);
+	    //	    error_array = ADDITION_ERRORS_16;
+	    //	    total_additions = ADDITION_TOTAL_16;
 	    break;
 	case 24:
-	    error_array = ADDITION_ERRORS_24;
-	    total_additions = ADDITION_TOTAL_24;
+	    error_array = ADDITION_ERRORS;
+	    total_additions = 1000000000 * (INVPROB_SRAM_READ_UPSET/10);
+	    //	    error_array = ADDITION_ERRORS_24;
+	    //	    total_additions = ADDITION_TOTAL_24;
 	    break;
 	default:
 	    error_array = ADDITION_ERRORS;
-	    total_additions = ADDITION_TOTAL;
+	    total_additions = 1000000000 * (INVPROB_SRAM_READ_UPSET/10);
 	    break;
 	}
 
+	/*
         if(ADDITION_TOTAL == 0){
             return num;
         }
         else{
+	*/
 	    boolean error = false;
             for(int i = 0; i < error_array.length; i ++){
                 if(Math.ceil(Math.random()*total_additions) <= error_array[i]) {
@@ -2760,7 +2774,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 	    if (error)
 		runInfo.countOperation("AdderErrorTotal", true, approximativeBits);
             return num;
-        }
+	    //        }
     }
 
     /**
@@ -2881,7 +2895,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             }
         }
 
-        //Addition errors
+        // Addition and Subtraction errors
         if(approximativeBits!=0 && nk == NumberKind.INT && (op == ArithOperator.PLUS || op == ArithOperator.MINUS)){
 	    num = adderNoise(num, approximativeBits);
         }
