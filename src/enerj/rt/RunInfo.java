@@ -73,15 +73,16 @@ class RunInfo {
 	memoryOpCounters.put("approxApproxEvictions", new AtomicInteger());
 	    
 	// For timer values
-	memoryTimeCounters.put("totalTime", new AtomicLong());
-	memoryTimeCounters.put("approxTotalTime", new AtomicLong());
-	memoryTimeCounters.put("preciseTotalTime", new AtomicLong());
+	//memoryTimeCounters.put("totalTime", new AtomicLong());
+	memoryTimeCounters.put("approxCumulativeTime", new AtomicLong());
+	memoryTimeCounters.put("preciseCumulativeTime", new AtomicLong());
 	memoryTimeCounters.put("minSramTime", new AtomicLong(Long.MAX_VALUE));
 	memoryTimeCounters.put("approxMinSramTime", new AtomicLong(Long.MAX_VALUE));
 	memoryTimeCounters.put("preciseMinSramTime", new AtomicLong(Long.MAX_VALUE));
 	memoryTimeCounters.put("maxSramTime", new AtomicLong());
 	memoryTimeCounters.put("approxMaxSramTime", new AtomicLong());
 	memoryTimeCounters.put("preciseMaxSramTime", new AtomicLong());
+    memoryTimeCounters.put("totalRunTime", new AtomicLong());
 
 	// For counting loaded/stored memory size
 	memorySizeCounters.put("storedApproxData", new AtomicLong());
@@ -288,11 +289,11 @@ class RunInfo {
      * Get average time of how long data has resided in SRAM memory.
      * @return Time value
      */
-    public double getAverageSramTime() {
-	return getTotalEvictions() == 0
-	    ? 0 // If everything fitted in the cache
-	    : (double)memoryTimeCounters.get("totalTime").get() / (double)getTotalEvictions();
-    }
+    //public double getAverageSramTime() {
+	//return getTotalEvictions() == 0
+	//    ? 0 // If everything fitted in the cache
+	//    : (double)memoryTimeCounters.get("totalTime").get() / (double)getTotalEvictions();
+    //}
 
     /**
      * Get average time of how long data has resided in SRAM memory.
@@ -304,7 +305,7 @@ class RunInfo {
             return 0; // If everything fitted in the cache
         }
         double totalTime = (double)memoryTimeCounters.get
-            (approx ? "approxTotalTime" : "preciseTotalTime").get();
+            (approx ? "approxCumulativeTime" : "preciseCumulativeTime").get();
         double numOfEvictions = (double)(
 					 approx ? getEvictions(true, false) + getEvictions(true, true)
 					 : getEvictions(false, false) + getEvictions(false, true)
@@ -317,9 +318,9 @@ class RunInfo {
      * @param time Increased time
      * @return Previous time value
      */
-    public long increaseTotalSramTime(long time) {
-	return memoryTimeCounters.get("totalTime").getAndAdd(time);
-    }
+    //public long increaseTotalSramTime(long time) {
+	//return memoryTimeCounters.get("totalTime").getAndAdd(time);
+    //}
     
     /**
      * Increase the total time of how long data has resided in SRAM memory.
@@ -328,7 +329,9 @@ class RunInfo {
      * @return Previous time value
      */
     public long increaseTotalSramTime(boolean approx, long time) {
-	return memoryTimeCounters.get(approx ? "approxTotalTime" : "preciseTotalTime").getAndAdd(time);
+        return memoryTimeCounters.get(
+                approx ? "approxCumulativeTime" : "preciseCumulativeTime"
+            ).getAndAdd(time);
     }
 	
     /**
@@ -336,7 +339,7 @@ class RunInfo {
      * @return Time value
      */
     public double getMinSramTime() {
-	return (double)memoryTimeCounters.get("minSramTime").get();
+        return (double)memoryTimeCounters.get("minSramTime").get();
     }
 	
     /**
@@ -345,7 +348,8 @@ class RunInfo {
      * @return Time value
      */
     public double getMinSramTime(boolean approx) {
-	return (double)memoryTimeCounters.get(approx ? "approxMinSramTime" : "preciseMinSramTime").get();
+        return (double)memoryTimeCounters.get(
+            approx ? "approxMinSramTime" : "preciseMinSramTime").get();
     }
 	
     /**
@@ -385,6 +389,24 @@ class RunInfo {
     public double getMaxSramTime(boolean approx) {
 	return (double)memoryTimeCounters.get(approx ? "approxMaxSramTime" : "preciseMaxSramTime").get();
     }	
+
+    /**
+     * Set the total runtime as the time from some start to some stop.
+     * @param start Start time
+     * @param stop Stop time
+     */
+    public void setTotalRuntime(long start, long stop) {
+        memoryTimeCounters.get("totalRunTime").set(stop-start);
+    }
+    
+    /**
+     * Get the (set) total runtime; this must have been previously set in order
+     * to work properly.
+     * @return The (set) total program runtime.
+     */
+    public long getTotalRuntime() {
+        return memoryTimeCounters.get("totalRunTime").get();
+    }
 
     /**
      * Compare time with the current SRAM time value. If time is the larger
@@ -562,8 +584,8 @@ class RunInfo {
 
 	sb.append("---Memory Summary---\n");
 	sb.append("Evictions: " + getTotalEvictions() + "\n");
-	sb.append(String.format(Locale.UK, "Average time in SRAM: %1.2f\n",
-				getAverageSramTime()));
+	//sb.append(String.format(Locale.UK, "Average time in SRAM: %1.2f\n",
+	//            getAverageSramTime()));
 	sb.append(String.format(Locale.UK, "Average time in SRAM (approx): %1.2f\n",
 				getAverageSramTime(true)));
 	sb.append(String.format(Locale.UK, "Average time in SRAM (precise): %1.2f\n",

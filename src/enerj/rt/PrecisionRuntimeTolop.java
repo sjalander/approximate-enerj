@@ -480,41 +480,38 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         // then, give all values addresses
         Object arr = created;
         ElementProcessor p = new ElementProcessor() {
-		@Override
-		public void process(Object arr, int index, boolean approx, int approximativeBits) {
-		    long tim = System.currentTimeMillis(); // Time stamp of creation
-                
-		    // Compute item size(s)
-		    int typeSize, approxSize = 0, preciseSize = 0;
-		    Object obj = Array.get(arr, index);
-		    String typeName;
-		    if (obj == null) { // Array contents may be null values; if so, determine array type
-			typeName = arr.getClass().getCanonicalName().replace("[]", "");
-			typeSize = numQytes(typeName, approx);
-		    }
-		    else {
-			typeName = obj.getClass().getName();
-			typeSize = numQytes(obj.getClass().getName(), approx);
-		    }
-                
-		    if (approx)
-			approxSize = typeSize;
-		    else
-			preciseSize = typeSize;
-                
-		    String key = memoryKey(arr, index);
-		    long address = createAddress(typeSize, approx); // Address to array reference
-		    addToCachelineTracker(approx ? address | approxMask : address, key);
+            @Override
+            public void process(Object arr, int index, boolean approx, int approximativeBits) {
+                long tim = System.currentTimeMillis(); // Time stamp of creation
+                    
+                // Compute item size(s)
+                int typeSize, approxSize = 0, preciseSize = 0;
+                Object obj = Array.get(arr, index);
+                String typeName;
+                if (obj == null) { // Array contents may be null values; if so, determine array type
+                typeName = arr.getClass().getCanonicalName().replace("[]", "");
+                typeSize = numQytes(typeName, approx);
+                }
+                else {
+                typeName = obj.getClass().getName();
+                typeSize = numQytes(obj.getClass().getName(), approx);
+                }
+                    
+                if (approx)
+                approxSize = typeSize;
+                else
+                preciseSize = typeSize;
+                    
+                String key = memoryKey(arr, index);
+                long address = createAddress(typeSize, approx); // Address to array reference
+                addToCachelineTracker(approx ? address | approxMask : address, key);
 
-		    AddressInformation ainfo =
-                        new AddressInformation(tim, approx, true, preciseSize,
-					       approxSize, approximativeBits, address, startup-1); // -1: Trick to force oldest possible time stamp
-		    ainfo.setType(arr, index);
-		    memorySpace.put(key, ainfo);
-                
-		    if (debug) {
-		    }
-		}
+                AddressInformation ainfo =
+                            new AddressInformation(tim, approx, true, preciseSize,
+                               approxSize, approximativeBits, address, startup-1); // -1: Trick to force oldest possible time stamp
+                ainfo.setType(arr, index);
+                memorySpace.put(key, ainfo);
+            }
 	    };
         addressesToArrayElemsAux(arr, p, approx, isValue, approximativeBits);
     }
@@ -562,24 +559,24 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         ArrayList<String> cacheline = getFromCacheLineTracker(addrTag);
         AddressInformation addressInfo;
         for (String key : cacheline) {
-	    addressInfo = memorySpace.get(key);
-	    /*
-	    if (dram) {
-		// Reading from DRAM and writing into cache
-		runInfo.countOperation("Store", addressInfo.approx, addressInfo.getApproximativeBits());
-		runInfo.countOperation("DRAMload", addressInfo.approx, addressInfo.getApproximativeBits());
-	    } else {
-		// Reading from cache and writing to DRAM
-		runInfo.countOperation("Load", addressInfo.approx, addressInfo.getApproximativeBits());
-		runInfo.countOperation("DRAMstore", addressInfo.approx, addressInfo.getApproximativeBits());
-	    }
-	    */
-	    if (ALLOW_APPROXIMATE && addressInfo.approximativeBits!=0) {
-		// Check if this item has approximative bits and in that
-		// case apply errors
-		loadChangeStore(addressInfo, currentTimeTuple, currentTimeStamp, dram);
-		addressInfo.clearFlipped();
-	    }
+            addressInfo = memorySpace.get(key);
+            /*
+            if (dram) {
+            // Reading from DRAM and writing into cache
+            runInfo.countOperation("Store", addressInfo.approx, addressInfo.getApproximativeBits());
+            runInfo.countOperation("DRAMload", addressInfo.approx, addressInfo.getApproximativeBits());
+            } else {
+            // Reading from cache and writing to DRAM
+            runInfo.countOperation("Load", addressInfo.approx, addressInfo.getApproximativeBits());
+            runInfo.countOperation("DRAMstore", addressInfo.approx, addressInfo.getApproximativeBits());
+            }
+            */
+            if (ALLOW_APPROXIMATE && addressInfo.approximativeBits != 0) {
+                // Check if this item has approximative bits and in that case
+                // apply errors
+                loadChangeStore(addressInfo, currentTimeTuple, currentTimeStamp, dram);
+                addressInfo.clearFlipped();
+            }
         }
     }
 
@@ -605,37 +602,49 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 
 	/* Select error model */
 	if (dram) {
-	    if (DRAMmode == ErrorModes.DYNAMIC) {
-		lastTime    = currentTimeTuple.getDramTime();
-		currentTime = currentTimeStamp;
-		invProb     = INVPROB_DRAM_FLIP_PER_SECOND;
-		dynamic     = true;
-	    }
+        switch (DRAMmode) {
+        case DYNAMIC:
+            lastTime    = currentTimeTuple.getDramTime();
+            currentTime = currentTimeStamp;
+            invProb     = INVPROB_DRAM_FLIP_PER_SECOND;
+            dynamic     = true;
+            break;
+        case STATIC:
+            invProb     = INVPROB_SRAM_WRITE_FAILURE; // Use same probability as SRAM
+            dynamic     = false;
+            break;
+        default:
+            assert false;
+            System.err.println("ERROR: DRAMMode reached NONE - check this...");
+            break;
+        }
+
 	    if (SRAMmode == ErrorModes.STATIC) {
-		lastTime    = 0;
-		currentTime = 0;
-		invProb     = INVPROB_SRAM_WRITE_FAILURE;
-		dynamic     = false;
+            lastTime    = 0;
+            currentTime = 0;
+            invProb     = INVPROB_SRAM_WRITE_FAILURE;
+            dynamic     = false;
 	    }
-	} else {
-            switch (SRAMmode) {
-            case DYNAMIC:
-		lastTime    = addressInfo.getTimeStamp();
-		currentTime = currentTimeStamp;
-		invProb     = INVPROB_DRAM_FLIP_PER_SECOND;
-		dynamic     = true;
-                break;
-            case STATIC:
-		lastTime    = 0;
-		currentTime = 0;
-		invProb     = INVPROB_SRAM_READ_UPSET;
-		dynamic     = false;
-            	break;
-            default:
-                assert false;
-                System.err.println("ERROR: Approximate value reached NONE - check this...");
-                break;
-            }
+	}
+    else {
+        switch (SRAMmode) {
+        case DYNAMIC:
+            lastTime    = addressInfo.getTimeStamp();
+            currentTime = currentTimeStamp;
+            invProb     = INVPROB_DRAM_FLIP_PER_SECOND;
+            dynamic     = true;
+            break;
+        case STATIC:
+            lastTime    = 0;
+            currentTime = 0;
+            invProb     = INVPROB_SRAM_READ_UPSET;
+            dynamic     = false;
+            break;
+        default:
+            assert false;
+            System.err.println("ERROR: SRAMMode reached NONE - check this...");
+            break;
+        }
 	}
 
 	if (dynamic) {
@@ -663,34 +672,35 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 				     TimeTuple currentTimeTuple, 
 				     long currentTimeStamp, 
 				     boolean dram) {
-	Object[] objAndSpec = addressInfo.getObjectAndSpecification();
+        Object[] objAndSpec = addressInfo.getObjectAndSpecification();
 
-	if (isPrimitive(objAndSpec[1])) { //--Data is from array index
-	    int index = ((Integer)objAndSpec[1]).intValue();
-	    T value = (T)Array.get(objAndSpec[0], index);
-	    value = applyError(value, addressInfo, currentTimeTuple, currentTimeStamp, dram);
-            Array.set(objAndSpec[0], index, value);
+        if (isPrimitive(objAndSpec[1])) { //--Data is from array index
+            int index = ((Integer)objAndSpec[1]).intValue();
+            T value = (T)Array.get(objAndSpec[0], index);
+            value = applyError(value, addressInfo, currentTimeTuple, currentTimeStamp, dram);
+                Array.set(objAndSpec[0], index, value);
+                addressInfo.setTimeStamp(currentTimeStamp);
+            }
+        else { //--Data is from class field
+                try {
+                    Field field = ((Object)objAndSpec[0]).getClass().
+                getDeclaredField((String)objAndSpec[1]);
+                    field.setAccessible(true);
+                    Object value = field.get((Object)objAndSpec[0]);
+            value = (Object)applyError(value, addressInfo, currentTimeTuple, currentTimeStamp, dram);
+                    field.set((Object)objAndSpec[0], value);
             addressInfo.setTimeStamp(currentTimeStamp);
-        } else { //--Data is from class field
-            try {
-                Field field = ((Object)objAndSpec[0]).getClass().
-		    getDeclaredField((String)objAndSpec[1]);
-                field.setAccessible(true);
-                Object value = field.get((Object)objAndSpec[0]);
-		value = (Object)applyError(value, addressInfo, currentTimeTuple, currentTimeStamp, dram);
-                field.set((Object)objAndSpec[0], value);
-		addressInfo.setTimeStamp(currentTimeStamp);
-	    }
-	    catch (NoSuchFieldException e) {
-		System.err.println(String.format("introduceErrorsOnCacheLine:"
-						 + "No field: %s; could not introduce errors...",
-						 (String)objAndSpec[1]));
-	    }
-	    catch (IllegalAccessException e) {
-		System.err.println("introduceErrorsOnCacheLine: "
-				   + "Illegal field access; could not introduce errors...");
-	    }
-	}
+            }
+            catch (NoSuchFieldException e) {
+            System.err.println(String.format("introduceErrorsOnCacheLine:"
+                             + "No field: %s; could not introduce errors...",
+                             (String)objAndSpec[1]));
+            }
+            catch (IllegalAccessException e) {
+            System.err.println("introduceErrorsOnCacheLine: "
+                       + "Illegal field access; could not introduce errors...");
+            }
+        }
     }
 
     /**
@@ -738,7 +748,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             sramTime = tim - evictedTimeTuple.getSramTime();
 
             //--For computing min, max and average cache time
-            runInfo.increaseTotalSramTime(sramTime); // TODO: Obsolete, can be removed
+            //runInfo.increaseTotalSramTime(sramTime); // TODO: Obsolete, can be removed
             runInfo.increaseTotalSramTime(currentAinfo.approx, sramTime);
 
             if (sramTime != 0) { // Immediate inserts doesn't count
@@ -942,6 +952,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     protected long INVPROB_SRAM_READ_UPSET = (long)Math.pow(10, 7.4);
     protected long INVPROB_REGISTER_WRITE_FAILURE = (long)Math.pow(10, 4.94);
     protected long INVPROB_REGISTER_READ_UPSET = (long)Math.pow(10, 7.4);
+    protected long INVPROB_ADDER_UPSET = (long)Math.pow(10, 7.4);
     // FPU characteristics (mantissa bits).
     protected final int MB_FLOAT_PRECISE = 23;
     protected int MB_FLOAT_APPROX = 8;
@@ -1284,6 +1295,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 		    json.getLong("INVPROB_REGISTER_WRITE_FAILURE");
         INVPROB_REGISTER_READ_UPSET =
 		    json.getLong("INVPROB_REGISTER_READ_UPSET");
+        INVPROB_ADDER_UPSET =
+		    json.getLong("INVPROB_ADDER_UPSET");
 		MB_FLOAT_APPROX = json.getInt("MB_FLOAT_APPROX");
 		MB_DOUBLE_APPROX = json.getInt("MB_DOUBLE_APPROX");
 		INVPROB_DRAM_FLIP_PER_SECOND =
@@ -1300,37 +1313,41 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         //--Hack-ish way to read from properties while still preserving other
         //--values if none set
         INVPROB_SRAM_WRITE_FAILURE
-	    = Long.parseLong(System.getProperty("INVPROB_SRAM_WRITE_FAILURE",
-						Long.toString(INVPROB_SRAM_WRITE_FAILURE)));
+            = Long.parseLong(System.getProperty("INVPROB_SRAM_WRITE_FAILURE",
+				Long.toString(INVPROB_SRAM_WRITE_FAILURE)));
         INVPROB_SRAM_READ_UPSET
-	    = Long.parseLong(System.getProperty("INVPROB_SRAM_READ_UPSET",
-						Long.toString(INVPROB_SRAM_READ_UPSET)));
+            = Long.parseLong(System.getProperty("INVPROB_SRAM_READ_UPSET",
+				Long.toString(INVPROB_SRAM_READ_UPSET)));
         MB_FLOAT_APPROX
-	    = Integer.parseInt(System.getProperty("MB_FLOAT_APPROX",
-						  Integer.toString(MB_FLOAT_APPROX)));
+            = Integer.parseInt(System.getProperty("MB_FLOAT_APPROX",
+				Integer.toString(MB_FLOAT_APPROX)));
         MB_DOUBLE_APPROX
-	    = Integer.parseInt(System.getProperty("MB_DOUBLE_APPROX",
-						  Integer.toString(MB_DOUBLE_APPROX)));
+            = Integer.parseInt(System.getProperty("MB_DOUBLE_APPROX",
+				Integer.toString(MB_DOUBLE_APPROX)));
         INVPROB_DRAM_FLIP_PER_SECOND
-	    = Long.parseLong(System.getProperty("INVPROB_DRAM_FLIP_PER_SECOND",
-						Long.toString(INVPROB_DRAM_FLIP_PER_SECOND)));
+            = Long.parseLong(System.getProperty("INVPROB_DRAM_FLIP_PER_SECOND",
+				Long.toString(INVPROB_DRAM_FLIP_PER_SECOND)));
         TIMING_ERROR_MODE
-	    = Integer.parseInt(System.getProperty("TIMING_ERROR_MODE",
-						  Integer.toString(TIMING_ERROR_MODE)));
+            = Integer.parseInt(System.getProperty("TIMING_ERROR_MODE",
+                Integer.toString(TIMING_ERROR_MODE)));
         TIMING_ERROR_PROB_PERCENT
-	    = Float.parseFloat(System.getProperty("TIMING_ERROR_PROB_PERCENT",
-						  Float.toString(TIMING_ERROR_PROB_PERCENT)));
+            = Float.parseFloat(System.getProperty("TIMING_ERROR_PROB_PERCENT",
+                Float.toString(TIMING_ERROR_PROB_PERCENT)));
         INVPROB_REGISTER_WRITE_FAILURE
-	    = Long.parseLong(System.getProperty("INVPROB_REGISTER_WRITE_FAILURE",
-						Long.toString(INVPROB_SRAM_WRITE_FAILURE)));
+            = Long.parseLong(System.getProperty("INVPROB_REGISTER_WRITE_FAILURE",
+                Long.toString(INVPROB_REGISTER_WRITE_FAILURE)));
         INVPROB_REGISTER_READ_UPSET
-	    = Long.parseLong(System.getProperty("INVPROB_REGISTER_READ_UPSET",
-						Long.toString(INVPROB_SRAM_READ_UPSET)));
+            = Long.parseLong(System.getProperty("INVPROB_REGISTER_READ_UPSET",
+                Long.toString(INVPROB_REGISTER_READ_UPSET)));
+        INVPROB_ADDER_UPSET
+            = Long.parseLong(System.getProperty("INVPROB_ADDER_UPSET",
+                Long.toString(INVPROB_ADDER_UPSET)));
 
         System.err.println("\tSRAM WF: " + INVPROB_SRAM_WRITE_FAILURE);
         System.err.println("\tSRAM RU: " + INVPROB_SRAM_READ_UPSET);
         System.err.println("\tRegister WF: " + INVPROB_REGISTER_WRITE_FAILURE);
         System.err.println("\tRegister RU: " + INVPROB_REGISTER_READ_UPSET);
+        System.err.println("\tAdder upset: " + INVPROB_ADDER_UPSET);
         System.err.println("\tfloat bits: " + MB_FLOAT_APPROX);
         System.err.println("\tdouble bits: " + MB_DOUBLE_APPROX);
         System.err.println("\tDRAM decay: " + INVPROB_DRAM_FLIP_PER_SECOND);
@@ -1961,25 +1978,28 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         // What sort of errors will the memory suffer from?
         String SRAMMod = System.getProperty("SRAMMode", "dynamic").toLowerCase();
         switch (SRAMMod) {
-	case "static":
-	    SRAMmode = ErrorModes.STATIC;
-	    break;
-	case "none":
-	    SRAMmode = ErrorModes.NONE; // Force anything else as dynamic
-	default:
-	    SRAMmode = ErrorModes.DYNAMIC; // Any "erroneous" value yields dynamic
-	    break;
-	}
+        case "static":
+            SRAMmode = ErrorModes.STATIC;
+            break;
+        case "none":
+            SRAMmode = ErrorModes.NONE; // Force anything else as dynamic
+        default:
+            SRAMmode = ErrorModes.DYNAMIC; // Any "erroneous" value yields dynamic
+            break;
+        }
         
         // DRAM shouldn't suffer from static errors
         String DRAMMod = System.getProperty("DRAMMode", "dynamic").toLowerCase();
         switch (DRAMMod) {
-	case "none":
-	    DRAMmode = ErrorModes.NONE; // Force anything as dynamic
-	default:
-	    DRAMmode = ErrorModes.DYNAMIC; // Any "erroneous" value yields dynamic
-	    break;
-	}
+        case "static":
+            DRAMmode = ErrorModes.STATIC; // Any "erroneous" value yields static
+            break;
+        case "none":
+            DRAMmode = ErrorModes.NONE; // Force anything as dynamic
+        default:
+            DRAMmode = ErrorModes.DYNAMIC; // Any "erroneous" value yields dynamic
+            break;
+        }
 
         // PCM specific simulation
         String PCMSimulation = System.getProperty("PCMSimulation", "false").toLowerCase();
@@ -2547,6 +2567,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * to the file "enerjstats.json".
      */
     private synchronized void dumpCounts() {
+
+        // Set stop time
+        runInfo.setTotalRuntime(startup, System.currentTimeMillis());
+
         JSONStringer stringer = new JSONStringer();
         try {
             stringer.object();
@@ -2600,9 +2624,9 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         
         // Write TOLOP related stats to file
         try {
-	    BufferedWriter bw = new BufferedWriter(new FileWriter("tolop_stats.txt"));
-	    bw.write(runInfo.toString());
-	    bw.close();
+            BufferedWriter bw = new BufferedWriter(new FileWriter("tolop_stats.txt"));
+            bw.write(runInfo.toString());
+            bw.close();
         }
         catch (IOException e) {
             System.err.println("Error while writing (new) EnerJ results to file...");
@@ -2738,31 +2762,31 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 	switch(approximativeBits){
 	case 0:
 	    error_array = ADDITION_ERRORS;
-	    total_additions = 1000000000 * (INVPROB_SRAM_READ_UPSET/10);
+	    total_additions = 1000000000 * (INVPROB_ADDER_UPSET/10);
 	    //	    error_array = ADDITION_ERRORS_0;
 	    //	    total_additions = ADDITION_TOTAL_0;
 	    break;
 	case 8:
 	    error_array = ADDITION_ERRORS;
-	    total_additions = 1000000000 * (INVPROB_SRAM_READ_UPSET/10);
+	    total_additions = 1000000000 * (INVPROB_ADDER_UPSET/10);
 	    //	    error_array = ADDITION_ERRORS_8;
 	    //	    total_additions = ADDITION_TOTAL_8;
 	    break;
 	case 16:
 	    error_array = ADDITION_ERRORS;
-	    total_additions = 1000000000 * (INVPROB_SRAM_READ_UPSET/10);
+	    total_additions = 1000000000 * (INVPROB_ADDER_UPSET/10);
 	    //	    error_array = ADDITION_ERRORS_16;
 	    //	    total_additions = ADDITION_TOTAL_16;
 	    break;
 	case 24:
 	    error_array = ADDITION_ERRORS;
-	    total_additions = 1000000000 * (INVPROB_SRAM_READ_UPSET/10);
+	    total_additions = 1000000000 * (INVPROB_ADDER_UPSET/10);
 	    //	    error_array = ADDITION_ERRORS_24;
 	    //	    total_additions = ADDITION_TOTAL_24;
 	    break;
 	default:
 	    error_array = ADDITION_ERRORS;
-	    total_additions = 1000000000 * (INVPROB_SRAM_READ_UPSET/10);
+	    total_additions = 1000000000 * (INVPROB_ADDER_UPSET/10);
 	    break;
 	}
 
