@@ -497,10 +497,13 @@ class RunInfo {
 				    key,
 				    ((AtomicInteger)approxOpCounts32.get(key)).get()));	
 	}
-	float hitRate = (float)(approxOpCounts32.get("Cache-Hit").get())/(float)(approxOpCounts32.get("CacheTotal").get()); // * 100;
-	sb.append(String.format("%-25s%10f\n",
-				"HitRate",
-				hitRate));
+	float hitRate;
+	if (approxOpCounts32.get("CacheTotal") != null) {
+	    hitRate = (float)(approxOpCounts32.get("Cache-Hit").get())/(float)(approxOpCounts32.get("CacheTotal").get()); // * 100;
+	    sb.append(String.format("%-25s%10f\n",
+				    "HitRate",
+				    hitRate));
+	}
 
 	sb.append("---Precise---\n");
 	keys = new TreeSet<String>(preciseOpCounts.keySet());
@@ -509,10 +512,12 @@ class RunInfo {
 				    key,
 				    ((AtomicInteger)preciseOpCounts.get(key)).get()));	
 	}
-	hitRate = (float)(preciseOpCounts.get("Cache-Hit").get())/(float)(preciseOpCounts.get("CacheTotal").get()); // * 100;
-	sb.append(String.format("%-25s%10f\n",
-				"HitRate",
-				hitRate));
+	if (preciseOpCounts.get("CacheTotal") != null) {
+	    hitRate = (float)(preciseOpCounts.get("Cache-Hit").get())/(float)(preciseOpCounts.get("CacheTotal").get()); // * 100;
+	    sb.append(String.format("%-25s%10f\n",
+				    "HitRate",
+				    hitRate));
+	}
 
 	sb.append("---Summary---\n");
 	Map<String, Integer> summary  = new HashMap<String, Integer>();
