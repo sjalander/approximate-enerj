@@ -800,15 +800,15 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         AddressInformation addressInfo = memorySpace.get(key);
         
         //--Count this memory operation
-	runInfo.countOperation("MemTotal", addressInfo.approx, addressInfo.getApproximativeBits());
+	runInfo.countOperation("CacheTotal", addressInfo.approx, addressInfo.getApproximativeBits());
         if (store) {
-	    runInfo.countOperation("MemStore", addressInfo.approx, addressInfo.getApproximativeBits());
+	    runInfo.countOperation("CacheStore", addressInfo.approx, addressInfo.getApproximativeBits());
 
             runInfo.increaseStores(addressInfo.approx);
             runInfo.increaseStoredQytes(addressInfo.approx,
 					addressInfo.getSize());
         } else {
-	    runInfo.countOperation("MemLoad", addressInfo.approx, addressInfo.getApproximativeBits());
+	    runInfo.countOperation("CacheLoad", addressInfo.approx, addressInfo.getApproximativeBits());
 
             runInfo.increaseLoads(addressInfo.approx);
             runInfo.increaseLoadedQytes(addressInfo.approx,
@@ -2997,7 +2997,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public <T> T loadLocal(Reference<T> ref, boolean approx) {
-        runInfo.increaseLocalLoads(ALLOW_APPROXIMATE ? approx : false);
+        runInfo.countOperation("RFload", approx, 32);
+	//        runInfo.increaseLocalLoads(ALLOW_APPROXIMATE ? approx : false);
         T val = loadValue(ref.value, approx, MemKind.VARIABLE);
         if (approx) {
             val = bitError(val, INVPROB_REGISTER_READ_UPSET,
@@ -3015,7 +3016,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     @SuppressWarnings("unchecked")
     @Override
     public <T> T loadArray(Object array, int index, boolean approx) {
-        runInfo.increaseArrayLoads(ALLOW_APPROXIMATE ? approx : false);
+        runInfo.countOperation("RFload", approx, 32);
+	//        runInfo.increaseArrayLoads(ALLOW_APPROXIMATE ? approx : false);
         String key = memoryKey(array, index);
         long tim = System.currentTimeMillis();
         loadFromMemory(key, tim);
@@ -3034,7 +3036,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     @SuppressWarnings("unchecked")
     @Override
     public <T> T loadField(Object obj, String fieldname, boolean approx) {
-        runInfo.increaseFieldLoads(ALLOW_APPROXIMATE ? approx : false);
+        runInfo.countOperation("RFload", approx, 32);
+	//        runInfo.increaseFieldLoads(ALLOW_APPROXIMATE ? approx : false);
         T val;
         long tim = System.currentTimeMillis();
         Boolean evictionOccurred = false;
@@ -3082,7 +3085,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     @Override
     public <T> T storeLocal(Reference<T> ref, boolean approx, T rhs) {
     	// TODO #general: If static - allow local errors after all?
-        runInfo.increaseLocalStores(ALLOW_APPROXIMATE ? approx : false);
+        runInfo.countOperation("RFstore", approx, 32);
+	//        runInfo.increaseLocalStores(ALLOW_APPROXIMATE ? approx : false);
         T value = storeValue(rhs, approx, MemKind.VARIABLE);
         if (approx) {
             value = bitError(value, INVPROB_REGISTER_WRITE_FAILURE,
@@ -3102,7 +3106,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public <T> T storeArray(Object array, int index, boolean approx, T rhs) {
-        runInfo.increaseArrayStores(ALLOW_APPROXIMATE ? approx : false);
+        runInfo.countOperation("RFstore", approx, 32);
+	//        runInfo.increaseArrayStores(ALLOW_APPROXIMATE ? approx : false);
         T val = storeValue(rhs, approx, MemKind.ARRAYEL);
         Array.set(array, index, val);
 
@@ -3129,7 +3134,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                             boolean approx,
                             T rhs) {
         // T val = storeValue(rhs, approx, MemKind.FIELD);
-        runInfo.increaseFieldStores(ALLOW_APPROXIMATE ? approx : false);
+        runInfo.countOperation("RFstore", approx, 32);
+	//        runInfo.increaseFieldStores(ALLOW_APPROXIMATE ? approx : false);
         Field field;
         try {
             // In static context, allow client to call this method with a Class
