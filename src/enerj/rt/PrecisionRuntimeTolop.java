@@ -722,14 +722,14 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         Boolean evictionOccurred = true;
         //--Early in program execution - nothing to evict yet
         if (indexAssocLine.size() < sramAssociativity) {
-	    runInfo.countOperation("CacheMiss-Cold", currentAinfo.approx, currentAinfo.approximativeBits);
+	    runInfo.countOperation("Cache-Miss-Cold", currentAinfo.approx, currentAinfo.approximativeBits);
             indexAssocLine.put(currentAddrTag, currentTimeTuple);
             currentTimeTuple.setLruTime(tim);
             currentTimeTuple.setSramTime(tim);
             evictionOccurred = false;
         }
         else { //--Evict oldest and insert loaded CL
-	    runInfo.countOperation("CacheMiss", currentAinfo.approx, currentAinfo.approximativeBits);
+	    runInfo.countOperation("Cache-Miss", currentAinfo.approx, currentAinfo.approximativeBits);
             //--Find oldest line currently in the index
 	    long oldestTime = Long.MAX_VALUE;
             TimeTuple tmpTuple;
@@ -748,7 +748,6 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             sramTime = tim - evictedTimeTuple.getSramTime();
 
             //--For computing min, max and average cache time
-            //runInfo.increaseTotalSramTime(sramTime); // TODO: Obsolete, can be removed
             runInfo.increaseTotalSramTime(currentAinfo.approx, sramTime);
 
             if (sramTime != 0) { // Immediate inserts doesn't count
@@ -761,8 +760,6 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             //--Switch cache lines
             indexAssocLine.remove(evictedAddressTag); // Remove old value
             indexAssocLine.put(currentAddrTag, currentTimeTuple); // Insert new value
-            //updateCacheLineTimeStamp(currentAddrTag, tim); // Set time stamp of new memory
-            runInfo.increaseEvictions(currentTimeTuple.approx, evictedTimeTuple.approx);
         }
 
 	/* Loaded cacheline from DRAM */
@@ -839,8 +836,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             }
             TimeTuple lineInSRAM = indexAssocLine.get(addrTag);
             lineInSRAM.setLruTime(currentTime);
-            runInfo.increaseHits(addressInfo.approx);
-	    runInfo.countOperation("CacheHit", addressInfo.approx, addressInfo.approximativeBits);
+	    runInfo.countOperation("Cache-Hit", addressInfo.approx, addressInfo.approximativeBits);
         }
         else { // Tag doesn't exist in cache: load from DRAM (including eviction)
             // Load time information 
@@ -848,7 +844,6 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                 = getCurrentCachelineTimeTuple(addressInfo, addrNoWordOffset, currentTime);
             evictCacheLine(indexAssocLine, currentLineTimeTuple, currentTime, addressInfo);
             evictionOccurred = true;
-            runInfo.increaseMisses(addressInfo.approx);
         }
         return evictionOccurred;
     }
@@ -866,29 +861,6 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
             addrTag |= approxMask; // If approximate: set approximation bit (MSB)
 	return addrTag;
     }
-
-    /**
-     * Print all steps of handling memory addresses in their binary form
-     * @param ainfo Address information
-     * @param address Address
-     * @param addrNoByteOffset Address, no byte offset
-     * @param addrNoWordOffset Address, no word offset
-     * @param addrIndex Computed index
-     * @param addrTag Comuted address tag
-     */
-    /*
-      private void debug_printBinaryRepresentations(AddressInformation ainfo,
-      long address, long addrNoByteOffset, long addrNoWordOffset,
-      long addrIndex, long addrTag) {
-      System.err.println(ainfo.approx ? "Approx " : "Precise ");
-      System.err.println(
-      "address:\t\t"+ address + "\t" + Long.toBinaryString(address) + "\n"
-      + "addrNoByteOffset:\t" + addrNoByteOffset + "\t" + Long.toBinaryString(addrNoByteOffset)  + "\n" 
-      + "addrNoWordOffset:\t" + addrNoWordOffset + "\t" + Long.toBinaryString(addrNoWordOffset) + "\n"
-      + "addrIndex:\t\t" + addrIndex + "\t" + Long.toBinaryString(addrIndex) + "\n"
-      + "addrTag:\t\t" + addrTag + "\t" + Long.toBinaryString(addrTag));
-      }
-    */
 
     /**
      * Load some object from the memory hierarchy. This may cause transactions
@@ -2294,7 +2266,7 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     public boolean beforeCreation(Object creator, boolean approx,
                                   int preciseSize, int approxSize,
 				  int approximativeBits) {
-        System.err.println("beforeCreation: " + approximativeBits);
+	//        System.err.println("beforeCreation: " + approximativeBits);
         if (debug) {
             System.out.println("EnerJ: before creator \""
 			       + System.identityHashCode(creator)
@@ -2835,6 +2807,9 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         // DEFAUL
 	runInfo.countOperation("OpsTotal", ALLOW_APPROXIMATE ? approx : false, approximativeBits);
 	runInfo.countOperation("Ops" + nk + opSymbol(op), ALLOW_APPROXIMATE ? approx : false, approximativeBits);
+	if(nk == NumberKind.INT && (op == ArithOperator.PLUS || op == ArithOperator.MINUS)){
+	    runInfo.countOperation("OpsTotal+/-", ALLOW_APPROXIMATE ? approx : false, approximativeBits);
+	}
 
         Number num = null;
         // Prevent divide-by-zero on approximate data.
@@ -2997,8 +2972,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public <T> T loadLocal(Reference<T> ref, boolean approx) {
+        runInfo.countOperation("RFTotal", approx, 32);
         runInfo.countOperation("RFload", approx, 32);
-	//        runInfo.increaseLocalLoads(ALLOW_APPROXIMATE ? approx : false);
         T val = loadValue(ref.value, approx, MemKind.VARIABLE);
         if (approx) {
             val = bitError(val, INVPROB_REGISTER_READ_UPSET,
@@ -3016,8 +2991,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     @SuppressWarnings("unchecked")
     @Override
     public <T> T loadArray(Object array, int index, boolean approx) {
+        runInfo.countOperation("RFTotal", approx, 32);
         runInfo.countOperation("RFload", approx, 32);
-	//        runInfo.increaseArrayLoads(ALLOW_APPROXIMATE ? approx : false);
         String key = memoryKey(array, index);
         long tim = System.currentTimeMillis();
         loadFromMemory(key, tim);
@@ -3036,8 +3011,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     @SuppressWarnings("unchecked")
     @Override
     public <T> T loadField(Object obj, String fieldname, boolean approx) {
+        runInfo.countOperation("RFTotal", approx, 32);
         runInfo.countOperation("RFload", approx, 32);
-	//        runInfo.increaseFieldLoads(ALLOW_APPROXIMATE ? approx : false);
         T val;
         long tim = System.currentTimeMillis();
         Boolean evictionOccurred = false;
@@ -3085,8 +3060,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     @Override
     public <T> T storeLocal(Reference<T> ref, boolean approx, T rhs) {
     	// TODO #general: If static - allow local errors after all?
+        runInfo.countOperation("RFTotal", approx, 32);
         runInfo.countOperation("RFstore", approx, 32);
-	//        runInfo.increaseLocalStores(ALLOW_APPROXIMATE ? approx : false);
         T value = storeValue(rhs, approx, MemKind.VARIABLE);
         if (approx) {
             value = bitError(value, INVPROB_REGISTER_WRITE_FAILURE,
@@ -3106,8 +3081,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public <T> T storeArray(Object array, int index, boolean approx, T rhs) {
+        runInfo.countOperation("RFTotal", approx, 32);
         runInfo.countOperation("RFstore", approx, 32);
-	//        runInfo.increaseArrayStores(ALLOW_APPROXIMATE ? approx : false);
         T val = storeValue(rhs, approx, MemKind.ARRAYEL);
         Array.set(array, index, val);
 
@@ -3134,8 +3109,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                             boolean approx,
                             T rhs) {
         // T val = storeValue(rhs, approx, MemKind.FIELD);
+        runInfo.countOperation("RFTotal", approx, 32);
         runInfo.countOperation("RFstore", approx, 32);
-	//        runInfo.increaseFieldStores(ALLOW_APPROXIMATE ? approx : false);
         Field field;
         try {
             // In static context, allow client to call this method with a Class

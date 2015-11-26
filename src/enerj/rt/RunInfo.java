@@ -82,7 +82,7 @@ class RunInfo {
 	memoryTimeCounters.put("maxSramTime", new AtomicLong());
 	memoryTimeCounters.put("approxMaxSramTime", new AtomicLong());
 	memoryTimeCounters.put("preciseMaxSramTime", new AtomicLong());
-    memoryTimeCounters.put("totalRunTime", new AtomicLong());
+	memoryTimeCounters.put("totalRunTime", new AtomicLong());
 
 	// For counting loaded/stored memory size
 	memorySizeCounters.put("storedApproxData", new AtomicLong());
@@ -497,6 +497,11 @@ class RunInfo {
 				    key,
 				    ((AtomicInteger)approxOpCounts32.get(key)).get()));	
 	}
+	float hitRate = (float)(approxOpCounts32.get("Cache-Hit").get())/(float)(approxOpCounts32.get("CacheTotal").get()); // * 100;
+	sb.append(String.format("%-25s%10f\n",
+				"HitRate",
+				hitRate));
+
 	sb.append("---Precise---\n");
 	keys = new TreeSet<String>(preciseOpCounts.keySet());
 	for (String key : keys) { 
@@ -504,19 +509,26 @@ class RunInfo {
 				    key,
 				    ((AtomicInteger)preciseOpCounts.get(key)).get()));	
 	}
+	hitRate = (float)(preciseOpCounts.get("Cache-Hit").get())/(float)(preciseOpCounts.get("CacheTotal").get()); // * 100;
+	sb.append(String.format("%-25s%10f\n",
+				"HitRate",
+				hitRate));
+
 	sb.append("---Summary---\n");
 	Map<String, Integer> summary  = new HashMap<String, Integer>();
 	Map<String, Integer> approxSummary  = new HashMap<String, Integer>();
 
 	List<String> list = new ArrayList<String>();
-	list.add("CacheHit");
-	list.add("CacheMiss");
-	list.add("MemLoad");
-	list.add("MemStore");
-	list.add("MemTotal");
+	list.add("RFTotal");
+	list.add("Cache-Hit");
+	list.add("Cache-Miss");
+	list.add("CacheLoad");
+	list.add("CacheStore");
+	list.add("CacheTotal");
 	list.add("OpsINT+");
 	list.add("OpsINT-");
 	list.add("OpsTotal");
+	list.add("OpsTotal+/-");
 	for (String key : list) {
 	    int value = 0;
 	    if (approxOpCounts0.containsKey(key))
@@ -539,26 +551,81 @@ class RunInfo {
 				    key,
 				    value));
 	}
-	float hitRate = (float)summary.get("CacheHit")/(float)summary.get("MemTotal") * 100;
+
+	hitRate = (float)summary.get("Cache-Hit")/(float)summary.get("CacheTotal"); // * 100;
 	sb.append(String.format("%-25s%10f\n",
 				"HitRate",
 				hitRate));
 
-	float opsRate = ((float)summary.get("OpsINT+")+(float)summary.get("OpsINT-"))/(float)summary.get("OpsTotal") * 100;
+	float opsRate = ((float)summary.get("OpsINT+")+(float)summary.get("OpsINT-"))/(float)summary.get("OpsTotal"); //* 100;
 	sb.append(String.format("%-25s%10f\n",
 				"INT+/- rate",
 				opsRate));
 
-	float approxOpsRate =(float)approxSummary.get("OpsTotal")/(float)summary.get("OpsTotal") * 100;
+	float approxOpsRate =(float)approxSummary.get("OpsTotal+/-")/(float)summary.get("OpsTotal"); // * 100;
 	sb.append(String.format("%-25s%10f\n",
 				"ApproxOps rate",
 				approxOpsRate));
 
-	float approxMemRate =(float)approxSummary.get("MemTotal")/(float)summary.get("MemTotal") * 100;
+	float approxRFRate =(float)approxSummary.get("RFTotal")/(float)summary.get("RFTotal"); // * 100;
 	sb.append(String.format("%-25s%10f\n",
-				"ApproxMem rate",
-				approxMemRate));
+				"ApproxRF rate",
+				approxRFRate));
 
+	float approxCacheRate =(float)approxSummary.get("CacheTotal")/(float)summary.get("CacheTotal"); // * 100;
+	sb.append(String.format("%-25s%10f\n",
+				"ApproxCache rate",
+				approxCacheRate));
+
+	sb.append("---Energy---\n");
+
+	float approxCacheEnergy = approxCacheRate * (float)0.64; 
+	sb.append(String.format("%-25s%10f\n",
+				"ApproxCache ",
+				approxCacheEnergy));
+
+	float preciseCacheEnergy = ((float)1.0 - approxCacheRate) * (float)1.04;
+	sb.append(String.format("%-25s%10f\n",
+				"PreciseCache ",
+				preciseCacheEnergy));
+
+	float totalCacheEnergy = approxCacheEnergy + preciseCacheEnergy;
+	sb.append(String.format("%-25s%10f\n",
+				"TotalCache ",
+				totalCacheEnergy));
+
+
+	float approxRFEnergy = approxRFRate * (float)0.64; 
+	sb.append(String.format("%-25s%10f\n",
+				"ApproxRF ",
+				approxRFEnergy));
+
+	float preciseRFEnergy = ((float)1.0 - approxRFRate) * (float)1.04;
+	sb.append(String.format("%-25s%10f\n",
+				"PreciseRF ",
+				preciseRFEnergy));
+
+	float totalRFEnergy = approxRFEnergy + preciseRFEnergy;
+	sb.append(String.format("%-25s%10f\n",
+				"TotalRF ",
+				totalRFEnergy));
+
+	float approxOpsEnergy = approxOpsRate * (float)0.62; 
+	sb.append(String.format("%-25s%10f\n",
+				"ApproxOps ",
+				approxOpsEnergy));
+
+	float preciseOpsEnergy = ((float)1.0 - approxOpsRate) * (float)1.0;
+	sb.append(String.format("%-25s%10f\n",
+				"PreciseOps ",
+				preciseOpsEnergy));
+
+	float totalOpsEnergy = approxOpsEnergy + preciseOpsEnergy;
+	sb.append(String.format("%-25s%10f\n",
+				"TotalOps ",
+				totalOpsEnergy));
+
+	/*
 	sb.append("---Memory operations---\n");
 	keys = new TreeSet<String>(memoryOpCounters.keySet());
 	for (String key : keys) { 
@@ -590,7 +657,7 @@ class RunInfo {
 				getAverageSramTime(true)));
 	sb.append(String.format(Locale.UK, "Average time in SRAM (precise): %1.2f\n",
 				getAverageSramTime(false)));
-
+	*/
 	sb.append("---Errors---\n");
 	sb.append("---Approx0---\n");
 	for (Map.Entry<String,AtomicInteger> entry : approxErrorCounts0.entrySet()) {
