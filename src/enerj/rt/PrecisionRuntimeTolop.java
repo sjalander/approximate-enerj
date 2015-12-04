@@ -600,6 +600,11 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 	long invProb     = 0;
 	boolean dynamic  = false;
 
+	/* To assure the we don't apply errors when we are not
+	 * supposed to */
+	if (!ALLOW_APPROXIMATE)
+	    return value;
+
 	/* Select error model */
 	if (dram) {
         switch (DRAMmode) {
@@ -941,12 +946,34 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     //    protected int[] ADDITION_ERRORS = new int[32];
     //    protected int ADDITION_TOTAL = 0;
 
+    protected final long[] ADDITION_ERRORS8 = {
+	2964759, 5351838, 6482864, 6578983, 6697890, 6729782, 6765853, 2936883,
+	988362, 493921, 246395, 122709, 61335, 30931, 15530, 7672,
+	3815, 1921, 964, 479, 244, 113, 52, 29,
+	12, 3, 0, 0, 0, 0, 0, 0};
+    protected final long[] ADDITION_ERRORS16 = {
+	2977505, 5332502, 6451376, 6600331, 6744963, 6750245, 6768068, 6753200,
+	6752345, 6758433, 6760697, 6789013, 6805844, 6784452, 6772695, 2945892,
+	992448, 496260, 248696, 124540, 62317, 30986, 15392, 7694,
+	3905, 2045, 1092, 586, 293, 138, 67, 22};
+    protected final long[] ADDITION_ERRORS24 = {
+	2975776, 5307888, 6417728, 6559097, 6697069, 6680962, 6690117, 6738853,
+	6766609, 6781523, 6791500, 6793458, 6792924, 6779148, 6771649, 6774575,
+	6777846, 6773905, 6770456, 6762669, 6760261, 6767169, 6770580, 2941911,
+	988075, 494075, 247163, 123745, 61987, 30784, 15215, 5072,};
+    protected final long[] ADDITION_ERRORS32 = {
+	2974266, 5335389, 6458995, 6571341, 6696127, 6722700, 6755010, 6763758,
+	6772568, 6773081, 6771614, 6772702, 6776803, 6777428, 6778017, 6775858,
+	6774748, 6775535, 6774563, 6776494, 6776924, 6776254, 6777106, 6777136,
+	6777699, 6777208, 6776378, 6776496, 6776059, 6776763, 6778576, 2286827};
+    /* 10^9 runs
     protected final long[] ADDITION_ERRORS = {
 	19804702, 4519584, 42532066, 14949752, 49044778, 22058413, 54386385, 27809980, 
 	58588568, 32334365, 61672709, 35683951, 63624397, 37850065, 64450171, 38856441, 
 	64149132, 38700788, 62726181, 37373376, 60176483, 34884115, 56501379, 31222230, 
 	51692866, 26394548, 45738613, 20378597, 38649184, 13190726, 30364086, 2045486
     };
+    */
 
     /*
     // Addition result bitwise error probability for 0 quart bits (all binary may still have some errors)
@@ -1056,6 +1083,11 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     	if (!isPrimitive(value))
             return value;
     	
+	/* To assure the we don't apply errors when we are not
+	 * supposed to */
+	if (!ALLOW_APPROXIMATE)
+	    return value;
+
         long bits = toBits(value);
         int width = numQytes(value);
 	boolean error = false;
@@ -1090,6 +1122,11 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     	if (!isPrimitive(value))
             return value;
     	
+	/* To assure the we don't apply errors when we are not
+	 * supposed to */
+	if (!ALLOW_APPROXIMATE)
+	    return value;
+
         long bits = toBits(value);
         int width = numQytes(value);
         int index = (int)Math.round((log2(age/1000)))-1;
@@ -2724,67 +2761,53 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * @return Potentially some erroneous value
      */
     private Number adderNoise(Number num, int approximativeBits) {
-	long error_array [];
-	long total_additions;
+	long error_array [] = ADDITION_ERRORS32;
+	long total_additions = 10000000 * INVPROB_ADDER_UPSET;
 
+	/* To assure the we don't apply errors when we are not
+	 * supposed to */
+	if (!ALLOW_APPROXIMATE)
+	    return num;
 
 	/* TODO: The error models need to be created for the other
 	 * approximate cases
 	 */
 	switch(approximativeBits){
 	case 0:
-	    error_array = ADDITION_ERRORS;
-	    total_additions = 1000000000 * (INVPROB_ADDER_UPSET/10);
-	    //	    error_array = ADDITION_ERRORS_0;
-	    //	    total_additions = ADDITION_TOTAL_0;
+	    System.err.println("There is no error model for Approx0");
+	    System.exit(0);
+	    //	    error_array = ADDITION_ERRORS;
 	    break;
 	case 8:
-	    error_array = ADDITION_ERRORS;
-	    total_additions = 1000000000 * (INVPROB_ADDER_UPSET/10);
-	    //	    error_array = ADDITION_ERRORS_8;
-	    //	    total_additions = ADDITION_TOTAL_8;
+	    error_array = ADDITION_ERRORS8;
 	    break;
 	case 16:
-	    error_array = ADDITION_ERRORS;
-	    total_additions = 1000000000 * (INVPROB_ADDER_UPSET/10);
-	    //	    error_array = ADDITION_ERRORS_16;
-	    //	    total_additions = ADDITION_TOTAL_16;
+	    error_array = ADDITION_ERRORS16;
 	    break;
 	case 24:
-	    error_array = ADDITION_ERRORS;
-	    total_additions = 1000000000 * (INVPROB_ADDER_UPSET/10);
-	    //	    error_array = ADDITION_ERRORS_24;
-	    //	    total_additions = ADDITION_TOTAL_24;
+	    error_array = ADDITION_ERRORS24;
 	    break;
 	default:
-	    error_array = ADDITION_ERRORS;
-	    total_additions = 1000000000 * (INVPROB_ADDER_UPSET/10);
+	    error_array = ADDITION_ERRORS32;
 	    break;
 	}
 
-	/*
-        if(ADDITION_TOTAL == 0){
-            return num;
-        }
-        else{
-	*/
-	    boolean error = false;
-            for(int i = 0; i < error_array.length; i ++){
-                if(Math.ceil(Math.random()*total_additions) <= error_array[i]) {
-		    error = true;
-		    runInfo.countError("AdderError_Bit"+i, true, approximativeBits);
-                    if(Math.random()<0.5){
-                        num = (int)num + (int)Math.pow(2,i);
-                    }
-                    else{
-                        num = (int)num - (int)Math.pow(2,i);
-                    }
-                }
-            }
-	    if (error)
-		runInfo.countOperation("AdderErrorTotal", true, approximativeBits);
-            return num;
-	    //        }
+	boolean error = false;
+	for(int i = 0; i < error_array.length; i ++) {
+	    if(Math.ceil(Math.random()*total_additions) <= error_array[i]) {
+		error = true;
+		runInfo.countError("AdderError_Bit"+i, true, approximativeBits);
+		if(Math.random()<0.5){
+		    num = (int)num + (int)Math.pow(2,i);
+		}
+		else{
+		    num = (int)num - (int)Math.pow(2,i);
+		}
+	    }
+	}
+	if (error)
+	    runInfo.countOperation("AdderErrorTotal", true, approximativeBits);
+	return num;
     }
 
     /**
@@ -2972,10 +2995,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public <T> T loadLocal(Reference<T> ref, boolean approx) {
-        runInfo.countOperation("RFTotal", approx, 32);
-        runInfo.countOperation("RFload", approx, 32);
+        runInfo.countOperation("RFTotal", ALLOW_APPROXIMATE && approx, 32);
+        runInfo.countOperation("RFload", ALLOW_APPROXIMATE && approx, 32);
         T val = loadValue(ref.value, approx, MemKind.VARIABLE);
-        if (approx) {
+        if (ALLOW_APPROXIMATE && approx) {
             val = bitError(val, INVPROB_REGISTER_READ_UPSET,
                     ref.approximativeBits);
         }
@@ -2991,8 +3014,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     @SuppressWarnings("unchecked")
     @Override
     public <T> T loadArray(Object array, int index, boolean approx) {
-        runInfo.countOperation("RFTotal", approx, 32);
-        runInfo.countOperation("RFload", approx, 32);
+        runInfo.countOperation("RFTotal", ALLOW_APPROXIMATE && approx, 32);
+        runInfo.countOperation("RFload", ALLOW_APPROXIMATE && approx, 32);
         String key = memoryKey(array, index);
         long tim = System.currentTimeMillis();
         loadFromMemory(key, tim);
@@ -3011,8 +3034,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     @SuppressWarnings("unchecked")
     @Override
     public <T> T loadField(Object obj, String fieldname, boolean approx) {
-        runInfo.countOperation("RFTotal", approx, 32);
-        runInfo.countOperation("RFload", approx, 32);
+        runInfo.countOperation("RFTotal", ALLOW_APPROXIMATE && approx, 32);
+        runInfo.countOperation("RFload", ALLOW_APPROXIMATE && approx, 32);
         T val;
         long tim = System.currentTimeMillis();
         Boolean evictionOccurred = false;
@@ -3060,10 +3083,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     @Override
     public <T> T storeLocal(Reference<T> ref, boolean approx, T rhs) {
     	// TODO #general: If static - allow local errors after all?
-        runInfo.countOperation("RFTotal", approx, 32);
-        runInfo.countOperation("RFstore", approx, 32);
+        runInfo.countOperation("RFTotal", ALLOW_APPROXIMATE && approx, 32);
+        runInfo.countOperation("RFstore", ALLOW_APPROXIMATE && approx, 32);
         T value = storeValue(rhs, approx, MemKind.VARIABLE);
-        if (approx) {
+        if (ALLOW_APPROXIMATE && approx) {
             value = bitError(value, INVPROB_REGISTER_WRITE_FAILURE,
                     ref.approximativeBits);
         }
@@ -3081,8 +3104,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public <T> T storeArray(Object array, int index, boolean approx, T rhs) {
-        runInfo.countOperation("RFTotal", approx, 32);
-        runInfo.countOperation("RFstore", approx, 32);
+        runInfo.countOperation("RFTotal", ALLOW_APPROXIMATE && approx, 32);
+        runInfo.countOperation("RFstore", ALLOW_APPROXIMATE && approx, 32);
         T val = storeValue(rhs, approx, MemKind.ARRAYEL);
         Array.set(array, index, val);
 
@@ -3109,8 +3132,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
                             boolean approx,
                             T rhs) {
         // T val = storeValue(rhs, approx, MemKind.FIELD);
-        runInfo.countOperation("RFTotal", approx, 32);
-        runInfo.countOperation("RFstore", approx, 32);
+        runInfo.countOperation("RFTotal", ALLOW_APPROXIMATE && approx, 32);
+        runInfo.countOperation("RFstore", ALLOW_APPROXIMATE && approx, 32);
         Field field;
         try {
             // In static context, allow client to call this method with a Class
