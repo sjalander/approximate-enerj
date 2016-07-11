@@ -874,7 +874,6 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * @param tim Current time stamp
      */
     private synchronized Boolean loadFromMemory(String key, long tim) {
-        runInfo.increaseTotalMemOps();
         return memoryOp(key, false, tim);
     }
     
@@ -885,7 +884,6 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      * @param tim Current time stamp
      */
     private synchronized Boolean storeIntoMemory(String key, long tim) {
-    	runInfo.increaseTotalMemOps();
     	return memoryOp(key, true, tim);
     }
 
@@ -2971,7 +2969,6 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public <T> T storeValue(T value, boolean approx, MemKind kind) {
-	//        runInfo.countOperation("store" + kind, approx, 32);
         return value;
     }
 
@@ -2984,7 +2981,6 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
      */
     @Override
     public <T> T loadValue(T value, boolean approx, MemKind kind) {
-	//        runInfo.countOperation("load" + kind, approx, 32);
         return value;
     }
 
@@ -3054,14 +3050,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 
             //--TOLOP
             //--Load from simulated memory hierarchy
-            //if (null != obj) {
             String key = memoryKey(obj, fieldname);
             evictionOccurred = loadFromMemory(key, tim);
-            //}
 
             val = loadValue((T) field.get(obj), approx, MemKind.FIELD);
-
-
         } catch (IllegalArgumentException x) {
             System.err.println("reflection error!");
             val = null;

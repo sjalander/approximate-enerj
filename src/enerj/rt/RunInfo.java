@@ -527,6 +527,7 @@ class RunInfo {
 	list.add("RFTotal");
 	list.add("Cache-Hit");
 	list.add("Cache-Miss");
+	list.add("Cache-Miss-Cold");
 	list.add("CacheLoad");
 	list.add("CacheStore");
 	list.add("CacheTotal");
@@ -629,6 +630,34 @@ class RunInfo {
 	sb.append(String.format("%-25s%10f\n",
 				"TotalOps ",
 				totalOpsEnergy));
+
+	float approxMiss = 0;
+	if (approxSummary.containsKey("Cache-Miss"))
+	    approxMiss = (float)approxSummary.get("Cache-Miss");
+	if (approxSummary.containsKey("Cache-Miss-Cold"))
+	    approxMiss += (float)approxSummary.get("Cache-Miss-Cold");
+	float preciseMiss = 0;
+	if (preciseOpCounts.containsKey("Cache-Miss"))
+	    preciseMiss = (float)preciseOpCounts.get("Cache-Miss").get();
+	if (preciseOpCounts.containsKey("Cache-Miss-Cold"))
+	    preciseMiss += (float)preciseOpCounts.get("Cache-Miss-Cold").get();
+	float totalMiss   = 0;
+	if (summary.containsKey("Cache-Miss"))
+	    totalMiss = (float)summary.get("Cache-Miss");
+	if (summary.containsKey("Cache-Miss-Cold"))
+	    totalMiss += (float)summary.get("Cache-Miss-Cold");
+	float approxMemEnergy  = approxMiss/2/totalMiss;
+	float preciseMemEnergy = preciseMiss/totalMiss;
+	sb.append(String.format("%-25s%10f\n",
+				"ApproxMem ",
+				approxMemEnergy));
+	sb.append(String.format("%-25s%10f\n",
+				"PreciseMem ",
+				preciseMemEnergy));
+	sb.append(String.format("%-25s%10f\n",
+				"TotalMem ",
+				approxMemEnergy + preciseMemEnergy));
+
 
 	/*
 	sb.append("---Memory operations---\n");
