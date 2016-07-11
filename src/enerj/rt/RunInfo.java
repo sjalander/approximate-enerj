@@ -533,6 +533,8 @@ class RunInfo {
 	list.add("CacheTotal");
 	list.add("OpsINT+");
 	list.add("OpsINT-");
+	list.add("OpsINT*");
+	list.add("OpsLONG*");
 	list.add("OpsTotal");
 	list.add("OpsTotal+/-");
 	for (String key : list) {
@@ -568,7 +570,7 @@ class RunInfo {
 				"INT+/- rate",
 				opsRate));
 
-	float approxOpsRate =(float)approxSummary.get("OpsTotal+/-")/(float)summary.get("OpsTotal"); // * 100;
+	float approxOpsRate =((float)approxSummary.get("OpsTotal+/-")+(float)approxSummary.get("OpsLONG*")+(float)approxSummary.get("OpsINT*"))/(float)summary.get("OpsTotal"); // * 100;
 	sb.append(String.format("%-25s%10f\n",
 				"ApproxOps rate",
 				approxOpsRate));
@@ -599,7 +601,6 @@ class RunInfo {
 	sb.append(String.format("%-25s%10f\n",
 				"TotalCache ",
 				totalCacheEnergy));
-
 
 	float approxRFEnergy = approxRFRate * (float)0.64; 
 	sb.append(String.format("%-25s%10f\n",

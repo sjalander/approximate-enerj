@@ -945,6 +945,50 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
     //    protected int ADDITION_TOTAL = 0;
 
     protected final long[] ADDITION_ERRORS8 = {
+	1972789, 992135, 4359702, 2122579, 4455238, 2244377, 4488504, 2279177,
+	659224, 329347, 164471, 82187, 41355, 20686, 10264, 5157,
+	2558, 1235, 617, 303, 161, 82, 34, 16,
+	8, 5, 4, 1, 1, 1, 0, 0};
+    protected final long[] ADDITION_ERRORS16 = {
+	1981644, 994757, 4335507, 2113654, 4485559, 2258107, 4490557, 2279264,
+	4476859, 2275977, 4481789, 2279787, 4509199, 2295814, 4489396, 2285751,
+	661416, 331081, 165561, 82754, 41466, 20902, 10356, 5306,
+	2610, 1310, 626, 301, 141, 72, 36, 18};
+    protected final long[] ADDITION_ERRORS24 = {
+	1980226, 994506, 4311344, 2103764, 4452708, 2245011, 4438567, 2254427,
+	4488778, 2283208, 4500984, 2289058, 4502855, 2292410, 4490415, 2285534,
+	4492780, 2284336, 4488644, 2284507, 4484405, 2282078, 4487614, 2282945,
+	659455, 329613, 164667, 82362, 41148, 20677, 10329, 5253};
+    protected final long[] ADDITION_ERRORS32 = {
+	1980079, 995656, 4341123, 2117745, 4452142, 2240993, 4482577, 2276767,
+	4489561, 2282916, 4490474, 2284311, 4490315, 2284377, 4490319, 2284349,
+	4490626, 2285342, 4491721, 2283550, 4490440, 2285577, 4492026, 2285753,
+	4491019, 2287365, 4489412, 2281818, 4489005, 2284137, 4491426, 2286762};
+
+    protected final long[] MULTIPLICATION_ERRORS8 = {
+	2508132, 715139, 3802174, 1981082, 3876125, 2218387, 3931878, 2349758,
+	953384, 478195, 238968, 119217, 59362, 29825, 15052, 7423,
+	3765, 1847, 914, 469, 236, 107, 63, 25,
+	14, 10, 7, 2, 0, 0, 0, 0};
+    protected final long[] MULTIPLICATION_ERRORS16 = {
+	2703152, 804039, 3967349, 2150895, 4064025, 2416530, 4083673, 2524029,
+	4129189, 2603215, 4151736, 2665792, 4187001, 2745991, 4193782, 2801669,
+	1474869, 744965, 373020, 186513, 93597, 46590, 23220, 11614,
+	5680, 2809, 1452, 735, 362, 196, 103, 52};
+    protected final long[] MULTIPLICATION_ERRORS24 = {
+	2882483, 893035, 4114473, 2323768, 4193845, 2568421, 4213258, 2671284,
+	4246650, 2764858, 4283216, 2826644, 4308470, 2888170, 4319445, 2941730,
+	4342431, 2999255, 4359194, 3047148, 4377439, 3103074, 4383960, 3148244,
+	1887049, 958525, 478490, 239449, 120015, 59994, 29955, 15125};
+    protected final long[] MULTIPLICATION_ERRORS32 = {
+	2996256, 957158, 4218529, 2448011, 4278324, 2690272, 4316734, 2806874,
+	4338553, 2878128, 4362869, 2937899, 4378186, 2990345, 4396864, 3044020,
+	4411723, 3094055, 4428725, 3144662, 4443165, 3192974, 4454713, 3239907,
+	4470044, 3289332, 4486014, 3337791, 4499254, 3381189, 4512205, 3421882};
+
+    /*
+    // Computing Frontiers 2016 Error model
+    protected final long[] ADDITION_ERRORS8 = {
 	2964759, 5351838, 6482864, 6578983, 6697890, 6729782, 6765853, 2936883,
 	988362, 493921, 246395, 122709, 61335, 30931, 15530, 7672,
 	3815, 1921, 964, 479, 244, 113, 52, 29,
@@ -964,6 +1008,8 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 	6772568, 6773081, 6771614, 6772702, 6776803, 6777428, 6778017, 6775858,
 	6774748, 6775535, 6774563, 6776494, 6776924, 6776254, 6777106, 6777136,
 	6777699, 6777208, 6776378, 6776496, 6776059, 6776763, 6778576, 2286827};
+    */
+
     /* 10^9 runs
     protected final long[] ADDITION_ERRORS = {
 	19804702, 4519584, 42532066, 14949752, 49044778, 22058413, 54386385, 27809980, 
@@ -2795,16 +2841,81 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
 	    if(Math.ceil(Math.random()*total_additions) <= error_array[i]) {
 		error = true;
 		runInfo.countError("AdderError_Bit"+i, true, approximativeBits);
+		// Flip the bit using XOR
+		num = num.intValue() ^ (1 << i);
+		/*
+		// Computing frontiers way of applying error
 		if(Math.random()<0.5){
 		    num = (int)num + (int)Math.pow(2,i);
 		}
 		else{
 		    num = (int)num - (int)Math.pow(2,i);
 		}
+		*/
 	    }
 	}
 	if (error)
 	    runInfo.countOperation("AdderErrorTotal", true, approximativeBits);
+	return num;
+    }
+
+    /**
+     * Add simulated multiplier noise errors. 
+     * @param Input number
+     * @return Potentially some erroneous value
+     */
+    private Number multiplierNoise(Number num, int approximativeBits) {
+	long error_array [] = MULTIPLICATION_ERRORS32;
+	long total_additions = 1000000 * INVPROB_ADDER_UPSET;
+
+	/* To assure the we don't apply errors when we are not
+	 * supposed to */
+	if (!ALLOW_APPROXIMATE)
+	    return num;
+
+	/* TODO: The error models need to be created for the other
+	 * approximate cases
+	 */
+	switch(approximativeBits){
+	case 0:
+	    System.err.println("There is no error model for Approx0");
+	    System.exit(0);
+	    //	    error_array = ADDITION_ERRORS;
+	    break;
+	case 8:
+	    error_array = MULTIPLICATION_ERRORS8;
+	    break;
+	case 16:
+	    error_array = MULTIPLICATION_ERRORS16;
+	    break;
+	case 24:
+	    error_array = MULTIPLICATION_ERRORS24;
+	    break;
+	default:
+	    error_array = MULTIPLICATION_ERRORS32;
+	    break;
+	}
+
+	boolean error = false;
+	for(int i = 0; i < error_array.length; i ++) {
+	    if(Math.ceil(Math.random()*total_additions) <= error_array[i]) {
+		error = true;
+		runInfo.countError("MultiplierError_Bit"+i, true, approximativeBits);
+		// Flip the bit using XOR
+		num = num.intValue() ^ (1 << i);
+		/*
+		// Computing frontiers way of applying error
+		if(Math.random()<0.5){
+		    num = (int)num + (int)Math.pow(2,i);
+		}
+		else{
+		    num = (int)num - (int)Math.pow(2,i);
+		}
+		*/
+	    }
+	}
+	if (error)
+	    runInfo.countOperation("MultiplierErrorTotal", true, approximativeBits);
 	return num;
     }
 
@@ -2932,6 +3043,10 @@ class PrecisionRuntimeTolop implements PrecisionRuntime {
         // Addition and Subtraction errors
         if(approximativeBits!=0 && nk == NumberKind.INT && (op == ArithOperator.PLUS || op == ArithOperator.MINUS)){
 	    num = adderNoise(num, approximativeBits);
+        }
+        // Multiplication errors
+        if(approximativeBits!=0 && (nk == NumberKind.INT || nk == NumberKind.LONG)  && op == ArithOperator.MULTIPLY){
+	    num = multiplierNoise(num, approximativeBits);
         }
 
         return num;
