@@ -519,6 +519,9 @@ class RunInfo {
 				    hitRate));
 	}
 
+
+
+	
 	sb.append("---Summary---\n");
 	Map<String, Integer> summary  = new HashMap<String, Integer>();
 	Map<String, Integer> approxSummary  = new HashMap<String, Integer>();
@@ -565,73 +568,84 @@ class RunInfo {
 				"HitRate",
 				hitRate));
 
-	float opsRate = ((float)summary.get("OpsINT+")+(float)summary.get("OpsINT-"))/(float)summary.get("OpsTotal"); //* 100;
+	float opsRate = ((float)summary.get("OpsINT+")+(float)summary.get("OpsINT-")+(float)summary.get("OpsINT*")+(float)summary.get("OpsLONG*"))/(float)summary.get("OpsTotal"); //* 100;
 	sb.append(String.format("%-25s%10f\n",
-				"INT+/- rate",
+				"INT+/-/* rate",
 				opsRate));
+	
+	float adderOpsRate = (float)approxSummary.get("OpsTotal+/-")/(float)summary.get("OpsTotal+/-");
+	sb.append(String.format("%-25s%10f\n",
+				"ApproxAdderOps rate",
+				adderOpsRate));
 
-	float approxOpsRate =((float)approxSummary.get("OpsTotal+/-")+(float)approxSummary.get("OpsLONG*")+(float)approxSummary.get("OpsINT*"))/(float)summary.get("OpsTotal"); // * 100;
+	float multiplierOpsRate = ((float)approxSummary.get("OpsLONG*")+(float)approxSummary.get("OpsINT*"))/((float)summary.get("OpsLONG*")+(float)summary.get("OpsINT*"));
+	sb.append(String.format("%-25s%10f\n",
+				"ApproxMultiplierOps rate",
+				multiplierOpsRate));
+
+	float approxOpsRate = ((float)approxSummary.get("OpsTotal+/-")+(float)approxSummary.get("OpsLONG*")+(float)approxSummary.get("OpsINT*"))/(float)summary.get("OpsTotal"); // * 100;
 	sb.append(String.format("%-25s%10f\n",
 				"ApproxOps rate",
 				approxOpsRate));
 
-	float approxRFRate =(float)approxSummary.get("RFTotal")/(float)summary.get("RFTotal"); // * 100;
+	float approxRFRate = (float)approxSummary.get("RFTotal")/(float)summary.get("RFTotal"); // * 100;
 	sb.append(String.format("%-25s%10f\n",
 				"ApproxRF rate",
 				approxRFRate));
 
-	float approxCacheRate =(float)approxSummary.get("CacheTotal")/(float)summary.get("CacheTotal"); // * 100;
+	float approxCacheRate = (float)approxSummary.get("CacheTotal")/(float)summary.get("CacheTotal"); // * 100;
 	sb.append(String.format("%-25s%10f\n",
 				"ApproxCache rate",
 				approxCacheRate));
 
+
+
+
 	sb.append("---Energy---\n");
 
-	float approxCacheEnergy = approxCacheRate * (float)0.64; 
-	sb.append(String.format("%-25s%10f\n",
-				"ApproxCache ",
-				approxCacheEnergy));
+	float approxAdderEnergyFactor      = (float) 0.544;
+	float approxMultiplierEnergyFactor = (float) 0.816;
+	float approxCacheEnergyFactor      = (float) 0.639;
+	float approxRegisterEnergyFactor   = (float) 0.524;
+	float approxMemoryEnergyFactor     = (float) 0.5;
 
-	float preciseCacheEnergy = ((float)1.0 - approxCacheRate) * (float)1.04;
-	sb.append(String.format("%-25s%10f\n",
-				"PreciseCache ",
-				preciseCacheEnergy));
+	float preciseAdderEnergyOverhead      = (float) 1.0;
+	float preciseMultiplierEnergyOverhead = (float) 1.0;
+	float preciseCacheEnergyOverhead      = (float) 1.036;
+	float preciseRegisterEnergyOverhead   = (float) 1.048;
+	float preciseMemoryEnergyOverhead     = (float) 1.0;
 
-	float totalCacheEnergy = approxCacheEnergy + preciseCacheEnergy;
-	sb.append(String.format("%-25s%10f\n",
-				"TotalCache ",
-				totalCacheEnergy));
-
-	float approxRFEnergy = approxRFRate * (float)0.64; 
-	sb.append(String.format("%-25s%10f\n",
-				"ApproxRF ",
-				approxRFEnergy));
-
-	float preciseRFEnergy = ((float)1.0 - approxRFRate) * (float)1.04;
-	sb.append(String.format("%-25s%10f\n",
-				"PreciseRF ",
-				preciseRFEnergy));
-
+	// Print header
+	sb.append(String.format("%-25s%10s %10s %10s\n",
+				"Type ",
+				"Approx",
+				"Precise",
+				"Total"));	
+	
+	// Accessing half the regsiter file almost reduces the energy
+	// by half according to CACTI
+	float approxRFEnergy = approxRFRate * approxRegisterEnergyFactor; 
+	float preciseRFEnergy = ((float)1.0 - approxRFRate) * preciseRegisterEnergyOverhead;
 	float totalRFEnergy = approxRFEnergy + preciseRFEnergy;
-	sb.append(String.format("%-25s%10f\n",
-				"TotalRF ",
-				totalRFEnergy));
+	sb.append(String.format("%-25s%10f %10f %10f\n",
+				"Register File",
+				approxRFEnergy,
+				preciseRFEnergy,
+				totalRFEnergy));	
 
-	float approxOpsEnergy = approxOpsRate * (float)0.62; 
-	sb.append(String.format("%-25s%10f\n",
-				"ApproxOps ",
-				approxOpsEnergy));
-
-	float preciseOpsEnergy = ((float)1.0 - approxOpsRate) * (float)1.0;
-	sb.append(String.format("%-25s%10f\n",
-				"PreciseOps ",
-				preciseOpsEnergy));
-
-	float totalOpsEnergy = approxOpsEnergy + preciseOpsEnergy;
-	sb.append(String.format("%-25s%10f\n",
-				"TotalOps ",
-				totalOpsEnergy));
-
+	// Since the tag energy is not reduced the benefit is not as high
+	// for caches
+	float approxCacheEnergy = approxCacheRate * approxCacheEnergyFactor; 
+	// The tags add a base energy so the overhead relative total energy
+	// becomes slightly less than for a register file
+	float preciseCacheEnergy = ((float)1.0 - approxCacheRate) * preciseCacheEnergyOverhead;
+	float totalCacheEnergy = approxCacheEnergy + preciseCacheEnergy;
+	sb.append(String.format("%-25s%10f %10f %10f\n",
+				"Cache",
+				approxCacheEnergy,
+				preciseCacheEnergy,
+				totalCacheEnergy));	
+	
 	float approxMiss = 0;
 	if (approxSummary.containsKey("Cache-Miss"))
 	    approxMiss = (float)approxSummary.get("Cache-Miss");
@@ -649,15 +663,40 @@ class RunInfo {
 	    totalMiss += (float)summary.get("Cache-Miss-Cold");
 	float approxMemEnergy  = approxMiss/2/totalMiss;
 	float preciseMemEnergy = preciseMiss/totalMiss;
-	sb.append(String.format("%-25s%10f\n",
-				"ApproxMem ",
-				approxMemEnergy));
-	sb.append(String.format("%-25s%10f\n",
-				"PreciseMem ",
-				preciseMemEnergy));
-	sb.append(String.format("%-25s%10f\n",
-				"TotalMem ",
-				approxMemEnergy + preciseMemEnergy));
+	sb.append(String.format("%-25s%10f %10f %10f\n",
+				"Main Memory",
+				approxMemEnergy,
+				preciseMemEnergy,
+				approxMemEnergy + preciseMemEnergy));	
+
+	
+	// Kogge-Stone has 62% of the activity of a conventional adder
+	// float approxOpsEnergy = approxOpsRate * (float)0.62;
+ 	// Brent-Kung has 54% of the activity of a conventional adder
+	float approxAdderEnergy = adderOpsRate * approxAdderEnergyFactor;
+	float preciseAdderEnergy = ((float)1.0 - adderOpsRate) * preciseAdderEnergyOverhead;
+	float totalAdderEnergy = approxAdderEnergy + preciseAdderEnergy;
+	sb.append(String.format("%-25s%10f %10f %10f\n",
+				"Adder",
+				approxAdderEnergy,
+				preciseAdderEnergy,
+				totalAdderEnergy));	
+
+	// 32-bit binary multipliers have to do on average 16 additions (50% chance a bit is one)
+	// So the energy of a binary multiplier is 16 times that of a binary adder
+	// Energy = 16 * 1 = 16
+	//
+	// 16-qit quaternary multipliers have to do on average 1.5 * 16 = 24 additions
+	// So the energy of a quaternary multiplier is 24 times that of a quaternary adder
+	// Energy = 24 * 0.54 = 12.96 or 12.96/16 = 81% of a binary multiplier
+	float approxMultiplierEnergy = multiplierOpsRate * approxMultiplierEnergyFactor;
+	float preciseMultiplierEnergy = ((float)1.0 - multiplierOpsRate) * preciseMultiplierEnergyOverhead;
+	float totalMultiplierEnergy = approxMultiplierEnergy + preciseMultiplierEnergy;
+	sb.append(String.format("%-25s%10f %10f %10f\n",
+				"Multiplier",
+				approxMultiplierEnergy,
+				preciseMultiplierEnergy,
+				totalMultiplierEnergy));	
 
 
 	/*
